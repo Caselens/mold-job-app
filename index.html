@@ -77,6 +77,7 @@ h1,h2,h3{font-family:"Space Grotesk",Inter,sans-serif;margin:0;line-height:1.15}
 table.lines{width:100%;border-collapse:collapse}
 table.lines td{padding:6px 4px;vertical-align:top}
 table.lines input{width:100%;min-height:52px;padding:10px 12px;border:1.5px solid #9FB3BD;border-radius:10px}
+.fld input.bad,table.lines input.bad{border-color:var(--bad);background:var(--badbg)}.moneyerr{color:var(--bad);font-size:15px;font-weight:600}.moneyerr:empty{display:none}
 .total{font-size:26px;font-weight:700;font-family:"Space Grotesk",sans-serif}
 .msg{background:var(--accbg);border:1px solid #A8D8D6;border-radius:14px;padding:16px;margin:14px 0}
 .msg .t{font-weight:700;font-size:16px;margin-bottom:6px}
@@ -132,7 +133,23 @@ function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){retur
 function get(o,p){var a=p.split(".");for(var i=0;i<a.length;i++){if(o==null)return undefined;o=o[a[i]];}return o;}
 function set(o,p,v){var a=p.split(".");for(var i=0;i<a.length-1;i++){var k=a[i];if(o[k]==null||typeof o[k]!=="object")o[k]=/^\d+$/.test(a[i+1])?[]:{};o=o[k];}o[a[a.length-1]]=v;}
 function money(n){n=num(n);var c=Math.round(Math.abs(n)*100)%100!==0;return (n<0?"-$":"$")+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:c?2:0,maximumFractionDigits:2});}
-function num(v){if(typeof v==="number")return isFinite(v)?v:0;var t=String(v==null?"":v).trim();var neg=/^\(.*\)$/.test(t)||/^-/.test(t.replace(/[$\s]/g,""));t=t.replace(/[^0-9.]/g,"");var parts=t.split(".");if(parts.length>2)t=parts[0]+"."+parts.slice(1).join("");var n=parseFloat(t);if(isNaN(n))return 0;n=Math.round(n*100)/100;return neg?-n:n;}
+function parseCents(v){
+ if(v==null)return 0;
+ if(typeof v==="number")return isFinite(v)?Math.round(v*100):null;
+ var t=String(v).trim();if(t==="")return 0;
+ var neg=false;
+ if(/^\(.*\)$/.test(t)){neg=true;t=t.slice(1,-1).trim();}
+ if(t.charAt(0)==="-"){neg=!neg;t=t.slice(1).trim();}
+ if(t.charAt(0)==="$"){t=t.slice(1).trim();}
+ if(t.charAt(0)==="-"){neg=!neg;t=t.slice(1).trim();}
+ if(!/^((\d{1,3}(,\d{3})+)|\d+)?(\.\d{1,2})?$/.test(t)||t===""||t===".")return null;
+ t=t.replace(/,/g,"");var parts=t.split(".");
+ var c=parseInt(parts[0]||"0",10)*100+(parts[1]?parseInt((parts[1]+"0").slice(0,2),10):0);
+ return neg?-c:c;
+}
+function num(v){var c=parseCents(v);return c==null?0:c/100;}
+function moneyOk(v){return parseCents(v)!==null;}
+function cents(v){var c=parseCents(v);return c==null?0:c;}
 function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function nice(d){if(!d)return "";var p=d.split("-");if(p.length!==3)return d;var m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return m[+p[1]-1]+" "+(+p[2])+", "+p[0];}
 function clone(o){return JSON.parse(JSON.stringify(o||{}));}
@@ -140,11 +157,16 @@ function co(){return settings.name||"[Company Name]";}
 function toast(t){var el=document.createElement("div");el.className="toast";el.textContent=t;document.body.appendChild(el);setTimeout(function(){el.remove();},2600);}
 
 // ---------- calculations ----------
-function quoteTotal(j){var s=0;(get(j,"quote.lines")||[]).forEach(function(l){s+=num(l.price);});return s;}
-function changesTotal(j){var s=0;(j.changes||[]).forEach(function(c){if(c.custSig)s+=num(c.frozen?c.frozen.amount:c.amount);});return s;}
-function jobTotal(j){return quoteTotal(j)+changesTotal(j);}
-function paidTotal(j){var s=0;(get(j,"pay.payments")||[]).forEach(function(p){s+=num(p.amount);});return s;}
-function balance(j){return jobTotal(j)-paidTotal(j);}
+function quoteCents(j){var s=0;(get(j,"quote.lines")||[]).forEach(function(l){s+=cents(l.price);});return s;}
+function quoteTotal(j){return quoteCents(j)/100;}
+function changesCents(j){var s=0;(j.changes||[]).forEach(function(c){if(c.custSig)s+=cents(c.frozen?c.frozen.amount:c.amount);});return s;}
+function changesTotal(j){return changesCents(j)/100;}
+function jobCents(j){return quoteCents(j)+changesCents(j);}
+function jobTotal(j){return jobCents(j)/100;}
+function paidCents(j){var s=0;(get(j,"pay.payments")||[]).forEach(function(p){s+=cents(p.amount);});return s;}
+function paidTotal(j){return paidCents(j)/100;}
+function balance(j){return (jobCents(j)-paidCents(j))/100;}
+function moneyErrors(j){var e=[];(get(j,"quote.lines")||[]).forEach(function(l,i){if(!moneyOk(l.price))e.push("Quote line "+(i+1));});if(!moneyOk(get(j,"agree.deposit")))e.push("Deposit");(j.changes||[]).forEach(function(c,i){if(!moneyOk(c.amount))e.push("Change "+(i+1));});(get(j,"pay.payments")||[]).forEach(function(p,i){if(!moneyOk(p.amount))e.push("Payment "+(i+1));});return e;}
 function screenResult(j){
  var s=j.screen||{};
  var keys=["owner","area","photos","timing","fixed","fee"];
@@ -226,7 +248,8 @@ function msgCard(title,key,j){
 }
 
 // ---------- field builders ----------
-function fText(label,p,o){o=o||{};var v=get(cur,p);return '<label class="fld"><span>'+esc(label)+'</span><input data-f="'+p+'" type="'+(o.type||"text")+'"'+(o.im?' inputmode="'+o.im+'"':'')+(o.ph?' placeholder="'+esc(o.ph)+'"':'')+' value="'+esc(v==null?"":v)+'"></label>';}
+function moneyMsg(v){return moneyOk(v)?'':'Not a valid amount. Type it like 1250, 1,250.50 or -200.';}
+function fText(label,p,o){o=o||{};var v=get(cur,p);var bad=o.money&&!moneyOk(v);return '<label class="fld"><span>'+esc(label)+'</span><input data-f="'+p+'"'+(o.money?' data-money="1"':'')+(bad?' class="bad"':'')+' type="'+(o.type||"text")+'"'+(o.im?' inputmode="'+o.im+'"':'')+(o.ph?' placeholder="'+esc(o.ph)+'"':'')+' value="'+esc(v==null?"":v)+'">'+(o.money?'<span class="moneyerr">'+esc(bad?moneyMsg(v):'')+'</span>':'')+'</label>';}
 function fArea(label,p,o){o=o||{};var v=get(cur,p);return '<label class="fld"><span>'+esc(label)+'</span><div class="areawrap"><textarea data-f="'+p+'"'+(o.ph?' placeholder="'+esc(o.ph)+'"':'')+'>'+esc(v||"")+'</textarea>'+(dict?'<button type="button" class="mic'+(micPath===p?' on':'')+'" data-act="mic" data-f="'+p+'" aria-label="Talk to type">'+micIcon()+'</button>':'')+'</div></label>';}
 function fSeg(label,p,opts){var v=get(cur,p);return '<div class="fld"><span>'+esc(label)+'</span><div class="seg">'+opts.map(function(op){var val=Array.isArray(op)?op[0]:op, lab=Array.isArray(op)?op[1]:op;return '<button type="button" class="'+(v===val?'on':'')+'" data-act="pick" data-f="'+p+'" data-v="'+esc(val)+'">'+esc(lab)+'</button>';}).join("")+'</div></div>';}
 function fTick(label,p){var on=!!get(cur,p);return '<button type="button" class="tick'+(on?' on':'')+'" data-act="tick" data-f="'+p+'"><span class="box">'+(on?'✓':'')+'</span><span>'+esc(label)+'</span></button>';}
@@ -239,6 +262,7 @@ function micIcon(){return '<svg width="22" height="22" viewBox="0 0 24 24" fill=
 
 // ---------- agreements ----------
 function ymd(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function newId(prefix){try{if(window.crypto&&crypto.randomUUID)return prefix+crypto.randomUUID().replace(/-/g,"");if(window.crypto&&crypto.getRandomValues){var a=new Uint8Array(16);crypto.getRandomValues(a);return prefix+Array.prototype.map.call(a,function(b){return ("0"+b.toString(16)).slice(-2);}).join("");}}catch(e){}return prefix+Date.now().toString(36)+Math.random().toString(36).slice(2,12);}
 function nthWeekday(y,m,wd,n){var d=new Date(y,m,1);var c=0;while(true){if(d.getDay()===wd){c++;if(c===n)return new Date(d);}d.setDate(d.getDate()+1);}}
 function lastWeekday(y,m,wd){var d=new Date(y,m+1,0);while(d.getDay()!==wd)d.setDate(d.getDate()-1);return d;}
 var holCache={};
@@ -254,15 +278,18 @@ function addBizDays(ds,n){if(!ds)return "";var p=ds.split("-");var d=new Date(+p
 function cancelEnds(j){var fz=get(j,"agree.frozen");var home=fz?fz.atHome:get(j,"agree.atHome");if(home!=="Yes")return "";var dt=get(j,"agree.custDate");if(!dt)return "";return addBizDays(dt,(fz?fz.senior:get(j,"agree.senior"))==="Yes"?7:5);}
 function inCancel(j){var e=cancelEnds(j);return !!e&&today()<=e;}
 function B(v){return v?String(v):"________";}
-function freezeAgree(j){if(get(j,"agree.frozen"))return;set(j,"agree.frozen",{at:new Date().toISOString(),payType:get(j,"customer.payType"),price:quoteTotal(j),lines:clone(get(j,"quote.lines")||[]),deposit:get(j,"agree.deposit")||"",atHome:get(j,"agree.atHome")||"",senior:get(j,"agree.senior")||"",text:agreementText(j)});}
-function freezeDtp(j){if(get(j,"agree.dtpFrozen"))return;set(j,"agree.dtpFrozen",{at:new Date().toISOString(),text:dtpText(j)});}
-function freezeChange(j,i){var c=j.changes[i];if(c.frozen)return;c.frozen={at:new Date().toISOString(),date:c.date||"",reason:c.reason||"",work:c.work||"",amount:num(c.amount),finishDate:c.finishDate||"",affects:c.affects||"",totalBefore:jobTotal(j)};}
+function headerSnap(j){return {co:co(),address:settings.address||"",phone:settings.phone||"",email:settings.email||"",mhic:settings.mhic||"",num:j.num||"",custName:get(j,"customer.name")||"",custAddress:get(j,"customer.address")||""};}
+function signerName(j,f){var c=get(j,"agree.custName")||get(j,"customer.name")||"",o=get(j,"agree.coName")||settings.owner||"";return /\.co[A-Z]?Sig$|coSig$/.test(f)?o:c;}
+function freezeAgree(j){if(get(j,"agree.frozen"))return;set(j,"agree.frozen",{at:new Date().toISOString(),header:headerSnap(j),sigs:{},ack:ackText(j),payType:get(j,"customer.payType"),price:quoteTotal(j),lines:clone(get(j,"quote.lines")||[]),deposit:get(j,"agree.deposit")||"",atHome:get(j,"agree.atHome")||"",senior:get(j,"agree.senior")||"",text:agreementText(j)});}
+function freezeDtp(j){if(get(j,"agree.dtpFrozen"))return;set(j,"agree.dtpFrozen",{at:new Date().toISOString(),header:headerSnap(j),sigs:{},text:dtpText(j)});}
+function freezeChange(j,i){var c=j.changes[i];if(c.frozen)return;c.frozen={at:new Date().toISOString(),header:headerSnap(j),sigs:{},date:c.date||"",reason:c.reason||"",work:c.work||"",amount:num(c.amount),finishDate:c.finishDate||"",affects:c.affects||"",totalBefore:jobTotal(j)};}
 function finishMeaning(j){return "The customer's signature confirms they received this certificate and that the work listed was done, except anything noted as not finished"+(isIns(j)?", and lets their insurance company and mortgage company release payment to us for this work":"")+". It does not waive their rights or the 90-day workmanship promise, and does not mean hidden conditions don't exist.";}
-function freezeFinish(j){if(get(j,"finish.frozen"))return;var f=j.finish||{};set(j,"finish.frozen",{at:new Date().toISOString(),date:f.date||"",checks:clone(f.checks||{}),notDone:f.notDone||"",source:f.source||"",tester:f.tester||get(j,"quote.tester")||settings.tester||"",ins:isIns(j)});}
+function freezeFinish(j){if(get(j,"finish.frozen"))return;var f=j.finish||{};set(j,"finish.frozen",{at:new Date().toISOString(),header:headerSnap(j),sigs:{},meaning:finishMeaning(j),insurer:isIns(j)?((get(j,"ins.company")||"")+" · Claim #"+(get(j,"ins.claim")||"")):"",mortgage:isIns(j)?(get(j,"ins.mortgage")||""):"",date:f.date||"",checks:clone(f.checks||{}),notDone:f.notDone||"",source:f.source||"",tester:f.tester||get(j,"quote.tester")||settings.tester||"",ins:isIns(j)});}
+function frozenFor(j,f){if(f==="agree.dtpSig")return get(j,"agree.dtpFrozen");if(f.indexOf("agree.")===0)return get(j,"agree.frozen");var m=f.match(/^changes\.(\d+)\./);if(m)return (j.changes[+m[1]]||{}).frozen;if(f.indexOf("finish.")===0)return get(j,"finish.frozen");return null;}
 function lockStart(on){return on?'<fieldset disabled style="border:0;padding:0;margin:0;min-width:0">':'';}
 function lockEnd(on){return on?'</fieldset>':'';}
 function voidDoc(j,kind,i){
- j.voided=j.voided||[];var rec={kind:kind,voidedAt:new Date().toISOString()};
+ j.voided=j.voided||[];var rec={kind:kind,voidedAt:new Date().toISOString(),jobNum:j.num};
  if(kind==="agree"){rec.frozen=get(j,"agree.frozen");rec.custSig=get(j,"agree.custSig");rec.coSig=get(j,"agree.coSig");rec.ackSig=get(j,"agree.ackSig");["frozen","custSig","coSig","custDate","coDate","ackSig","ackDate"].forEach(function(k){set(j,"agree."+k,null);});}
  if(kind==="dtp"){rec.frozen=get(j,"agree.dtpFrozen");rec.sig=get(j,"agree.dtpSig");["dtpFrozen","dtpSig","dtpDate"].forEach(function(k){set(j,"agree."+k,null);});}
  if(kind==="change"){var c=j.changes[i];rec.index=i;rec.frozen=c.frozen;rec.custSig=c.custSig;rec.coSig=c.coSig;["frozen","custSig","coSig","custDate","coDate"].forEach(function(k){c[k]=null;});}
@@ -293,7 +320,7 @@ function agreementText(j){
  }
  var n=ins?6:5;
  t.push((n++)+". WHAT YOU AGREE TO DO\n- Have the water problem that caused the mold fixed before we start, or tell us who is fixing it and when. ("+(get(j,"agree.sourceBy")||"________")+") If it isn't fixed, mold can come back, and we are not responsible for that.\n- Give us access during normal working hours, and keep electricity and water on.\n- Keep everyone, including pets, out of the sealed work area. Don't open or unzip the plastic.\n- Move or protect valuable, fragile or sentimental items before we start, unless we agree in writing to handle them.");
- t.push((n++)+". HIDDEN CONDITIONS AND HAZARDS\nWe can't see inside walls, floors or ceilings until we open them. If we find more mold, rot, or materials that may contain asbestos or lead, we stop that part of the work and tell you. Testing or other professionals may be needed, and extra work needs a signed Change Order. If the home was built before 1978, we follow EPA lead-safe rules and give you the Renovate Right pamphlet before we start.");
+ t.push((n++)+". HIDDEN CONDITIONS AND HAZARDS\nWe can't see inside walls, floors or ceilings until we open them. If we find more mold, rot, or materials that may contain asbestos or lead, we stop that part of the work and tell you. Testing or other professionals may be needed, and extra work needs a signed Change Order. If the home was built before 1978 and the work will disturb painted surfaces, that work must be done by an EPA lead-safe certified firm using a certified renovator, and you will get the Renovate Right pamphlet first. We will tell you before we start whether we are certified for it or who will do it.");
  t.push((n++)+". INDEPENDENT TESTING\nWe recommend an independent tester (not our company) check the work area after we finish. Tester: "+tester+". Paid by: "+tpays+". The plastic stays up until the testing plan says it can come down.");
  t.push((n++)+". OUR PROMISES AND THEIR LIMITS\n- We will do the work carefully, following accepted mold remediation practices, with trained crew.\n- If you tell us in writing about a problem with our workmanship within 90 days of completion, we will come back and fix it at no charge.\n- We do not promise that all mold is gone from the whole property, that mold won't come back, that the home is safe for anyone's health"+(ins?", or that insurance will pay":"")+".\n- We are not responsible for mold that comes back because of new water, a leak that wasn't fixed, or high humidity after we finish.\n- Opening walls and floors can cause minor damage to nearby finishes. We take care to limit it, but we aren't responsible for it except where we were careless.");
  t.push((n++)+". LATE PAYMENT\nIf payment is late, we may stop work until the account is current. Unpaid balances may be charged interest at the rate Maryland law allows, plus reasonable collection costs and attorney's fees where the law allows. When you pay, we give you a written receipt and, if you ask, a lien waiver for the amount paid.");
@@ -428,7 +455,7 @@ var STEP_RENDER={
   if(!get(j,"quote.lines")){set(j,"quote.lines",LINE_DEFAULTS.map(function(n){return {name:n,qty:"",price:""};}));}
   var qlock=!!get(j,"agree.frozen");
   var h=(qlock?'<div class="banner ok">The agreement is signed, so this quote is locked. Extra work or price changes go on a Change Order.</div>':'')+lockStart(qlock)+'<div class="card"><h2>Quote</h2><p class="hint">Type the price for each part of the job. The total adds itself up.</p><table class="lines"><tbody>';
-  (j.quote.lines||[]).forEach(function(l,i){h+='<tr><td style="width:46%"><input aria-label="Work" data-f="quote.lines.'+i+'.name" value="'+esc(l.name)+'"></td><td style="width:24%"><input aria-label="Area or amount" data-f="quote.lines.'+i+'.qty" placeholder="Area / amount" value="'+esc(l.qty)+'"></td><td style="width:24%"><input aria-label="Price" data-f="quote.lines.'+i+'.price" inputmode="decimal" placeholder="$" value="'+esc(l.price)+'"></td><td><button class="btn sm" data-act="delline" data-v="'+i+'" aria-label="Remove line">✕</button></td></tr>';});
+  (j.quote.lines||[]).forEach(function(l,i){h+='<tr><td style="width:46%"><input aria-label="Work" data-f="quote.lines.'+i+'.name" value="'+esc(l.name)+'"></td><td style="width:24%"><input aria-label="Area or amount" data-f="quote.lines.'+i+'.qty" placeholder="Area / amount" value="'+esc(l.qty)+'"></td><td style="width:24%"><input aria-label="Price" data-f="quote.lines.'+i+'.price" data-money="1"'+(moneyOk(l.price)?'':' class="bad"')+' inputmode="decimal" placeholder="$" value="'+esc(l.price)+'"><span class="moneyerr">'+esc(moneyMsg(l.price))+'</span></td><td><button class="btn sm" data-act="delline" data-v="'+i+'" aria-label="Remove line">✕</button></td></tr>';});
   h+='</tbody></table><div class="row" style="justify-content:space-between;margin-top:10px"><button class="btn sm" data-act="addline">+ Add a line</button><div class="total">Total <span data-calc="qtotal">'+money(quoteTotal(j))+'</span></div></div></div>';
   h+='<div class="card"><div class="grid2">'+fText("Days the work should take","quote.days",{im:"numeric"})+fText("Proposed start date","quote.start",{type:"date"})+fText("Quote good until","quote.validUntil",{type:"date"})+fText("Independent tester","quote.tester",{ph:settings.tester||""})+'</div>';
   h+=fSeg("Who pays for the independent test?","quote.testerPays",["Customer","Included in our price","Insurance"]);
@@ -447,24 +474,24 @@ var STEP_RENDER={
   if(alock)h+='<div class="banner ok">Signed '+esc(nice((get(j,"agree.frozen").at||"").slice(0,10)))+'. The terms below are locked. To change them, void the agreement (under the signatures) and have it signed again.</div>';
   h+=lockStart(alock)+fSeg("Who is paying for the job?","customer.payType",["Insurance","Self-pay"]);
   var maxDep=Math.floor(quoteTotal(j)/3);
-  h+='<div class="grid2">'+fText("Deposit at signing ($), max "+money(maxDep),"agree.deposit",{im:"decimal",ph:settings.depositPct?String(Math.min(maxDep,Math.round(quoteTotal(j)*num(settings.depositPct)/100))):""})+(ins?'':fText("Balance due","agree.rest",{ph:"When the work is finished"}))+fText("Start date","agree.startDate",{type:"date"})+fText("Expected finish","agree.endDate",{type:"date"})+'</div>';
+  h+='<div class="grid2">'+fText("Deposit at signing ($), max "+money(maxDep),"agree.deposit",{money:true,im:"decimal",ph:settings.depositPct?String(Math.min(maxDep,Math.round(quoteTotal(j)*num(settings.depositPct)/100))):""})+(ins?'':fText("Balance due","agree.rest",{ph:"When the work is finished"}))+fText("Start date","agree.startDate",{type:"date"})+fText("Expected finish","agree.endDate",{type:"date"})+'</div>';
   if(num(get(j,"agree.deposit"))>maxDep&&maxDep>0)h+='<div class="banner bad">The deposit can\'t be more than one-third of the price ('+money(maxDep)+').</div>';
   h+=fSeg("Who fixes the water problem?","agree.sourceBy",["Customer, before we start","Already fixed","Someone else, during our work"]);
   h+=fSeg("Job photos allowed?","agree.photoOk",["Yes","Yes, no faces or house number","No"]);
   h+=fSeg("Photos for advertising?","agree.marketingOk",["No","Yes, with written OK"]);
   h+=fSeg("Was the job sold at the customer's home, or anywhere other than your office?","agree.atHome",["Yes","No"]);
-  h+='<p class="hint" style="margin-top:-4px">Yes if you or your crew met with the customer and they agreed anywhere but your place of business. That gives them a legal right to cancel.</p>';
+  h+='<p class="hint" style="margin-top:-4px">Yes if you or your crew met with the customer and they agreed anywhere but your place of business. That usually gives them a legal right to cancel. <b>Not sure? Choose Yes.</b> Giving the cancellation notice when it isn\'t required costs only a few days.</p>';
   if(get(j,"agree.atHome")==="Yes")h+=fSeg("Is the customer 65 or older?","agree.senior",["No","Yes"]);
   h+=lockEnd(alock)+'</div>';
   h+='<div class="card"><h3>Agreement wording</h3><p class="hint">Read it over with the customer. Your company details and this job\'s details are filled in.</p><div class="contract">'+esc(alock?get(j,"agree.frozen").text:agreementText(j))+'</div></div>';
-  h+='<div class="card"><h3>Signatures</h3>'+fText("Customer name","agree.custName",{ph:get(j,"customer.name")||""})+fSig("Customer signature","agree.custSig",false)+fText("Company representative","agree.coName",{ph:settings.owner||""})+fSig("Company signature","agree.coSig",false);
+  h+='<div class="card"><h3>Signatures</h3>'+lockStart(alock)+fText("Customer name","agree.custName",{ph:get(j,"customer.name")||""})+lockEnd(alock)+fSig("Customer signature","agree.custSig",false)+lockStart(alock)+fText("Company representative","agree.coName",{ph:settings.owner||""})+lockEnd(alock)+fSig("Company signature","agree.coSig",false);
   h+='<div class="row"><button class="btn pri" data-act="pdf" data-v="agree"'+(get(j,"agree.custSig")?'':' disabled')+'>Download signed agreement (PDF)</button></div></div>';
   if(ins){
    h+='<div class="card"><h3>Direction to Pay</h3><p class="hint">Tells the insurer to put the company on the check for our work. It does not hand over the claim. Send it to the insurer with the first invoice.</p><div class="contract">'+esc(get(j,"agree.dtpFrozen")?get(j,"agree.dtpFrozen").text:dtpText(j))+'</div>'+fSig("Insured's signature","agree.dtpSig",false)+'<div class="row"><button class="btn pri" data-act="pdf" data-v="dtp"'+(get(j,"agree.dtpSig")?'':' disabled')+'>Download Direction to Pay (PDF)</button></div></div>';
   }
   if(get(j,"agree.atHome")==="Yes"){
    var ce=cancelEnds(j);
-   h+='<div class="card"><h3>Right to cancel</h3><p class="hint">Sold away from your office, so the customer can cancel within '+(get(j,"agree.senior")==="Yes"?'7':'5')+' business days. In Maryland, business days are every day except Sundays and nine holidays, so Saturdays count.</p><p class="hint"><b>Do this:</b> tell the customer out loud that they can cancel, have them sign the acknowledgment below, and give them two copies of the Notice of Cancellation (a separate paper from the agreement).</p><div class="contract">'+esc(ackText(j))+'</div>'+fSig("Customer signs the acknowledgment","agree.ackSig",false);
+   h+='<div class="card"><h3>Right to cancel</h3><p class="hint">Sold away from your office, so the customer can cancel within '+(get(j,"agree.senior")==="Yes"?'7':'5')+' business days. In Maryland, business days are every day except Sundays and nine holidays, so Saturdays count.</p><p class="hint"><b>Do this:</b> tell the customer out loud that they can cancel, have them sign the acknowledgment below, and give them two copies of the Notice of Cancellation (a separate paper from the agreement).</p><div class="contract">'+esc(get(j,"agree.frozen")?get(j,"agree.frozen").ack:ackText(j))+'</div>'+fSig("Customer signs the acknowledgment","agree.ackSig",false);
    if(ce)h+='<div class="banner '+(inCancel(j)?'warn':'ok')+'">'+(inCancel(j)?'Last day to cancel: <b>'+esc(nice(ce))+'</b> (until midnight). Company rule: don\'t start work or take any money until after that day.':'Cancellation period ended '+esc(nice(ce))+'. OK to start.')+'</div>';
    else h+='<p class="hint">The last day to cancel shows here once the customer signs.</p>';
    h+='<button class="btn pri" data-act="pdf" data-v="cancel">Download Notice of Cancellation and acknowledgment (PDF)</button></div>';
@@ -505,7 +532,7 @@ var STEP_RENDER={
   h+='<div class="grid2">'+fText("Test report date","finish.reportDate",{type:"date"})+'</div>';
   h+=fSeg("Test result","finish.result",["Waiting","Passed","Needs more work"]);
   h+='</div><div class="card"><h3>Sign-off</h3>'+fSig("Company representative","finish.coSig",false)+fSig("Customer","finish.custSig",false);
-  h+='<p class="hint">'+esc(finishMeaning(j))+'</p><div class="row"><button class="btn pri" data-act="pdf" data-v="finish"'+(get(j,"finish.date")?'':' disabled')+'>Download Certificate of Completion (PDF)</button></div></div>';
+  h+='<p class="hint">'+esc(get(j,"finish.frozen")?get(j,"finish.frozen").meaning:finishMeaning(j))+'</p><div class="row"><button class="btn pri" data-act="pdf" data-v="finish"'+(get(j,"finish.date")?'':' disabled')+'>Download Certificate of Completion (PDF)</button></div></div>';
   if(get(j,"finish.date"))h+=msgCard("work done","done",j);
   return h;
  },
@@ -513,7 +540,7 @@ var STEP_RENDER={
   var h='<div class="card"><h2>Payment</h2>';
   h+='<div class="grid2"><div><div class="hint" style="margin:0">Quote</div><div class="total">'+money(quoteTotal(j))+'</div></div><div><div class="hint" style="margin:0">Signed changes</div><div class="total">'+money(changesTotal(j))+'</div></div><div><div class="hint" style="margin:0">Paid so far</div><div class="total" data-calc="paid">'+money(paidTotal(j))+'</div></div><div><div class="hint" style="margin:0">Still owed</div><div class="total" data-calc="bal" style="color:'+(balance(j)>0?'var(--bad)':'var(--good)')+'">'+money(balance(j))+'</div></div></div></div>';
   h+='<div class="card"><h3>Payments received</h3>';
-  (get(j,"pay.payments")||[]).forEach(function(p,i){h+='<div class="grid2" style="border-top:1px solid var(--line);margin-top:6px">'+fText("Date","pay.payments."+i+".date",{type:"date"})+fText("Amount ($)","pay.payments."+i+".amount",{im:"decimal"})+'</div>'+fSeg("Paid by","pay.payments."+i+".method",["Check","Card","Cash","Insurance","Other"]);});
+  (get(j,"pay.payments")||[]).forEach(function(p,i){h+='<div class="grid2" style="border-top:1px solid var(--line);margin-top:6px">'+fText("Date","pay.payments."+i+".date",{type:"date"})+fText("Amount ($)","pay.payments."+i+".amount",{money:true,im:"decimal"})+'</div>'+fSeg("Paid by","pay.payments."+i+".method",["Check","Card","Cash","Insurance","Other"]);});
   h+='<button class="btn" data-act="addpay">+ Add a payment</button></div>';
   h+='<div class="card"><h3>Invoice</h3>'+fText("Invoice date","pay.invoiceDate",{type:"date"})+'<button class="btn pri" data-act="pdf" data-v="invoice"'+(jobTotal(j)>0?'':' disabled')+'>Download invoice (PDF)</button></div>';
   if(get(j,"pay.invoiceDate")&&balance(j)>0)h+=msgCard("invoice","invoice",j);
@@ -528,7 +555,7 @@ function renderChange(j,i){
  h+=fText("Date",p+"date",{type:"date"});
  h+=fArea("What we found and why the change is needed",p+"reason");
  h+=fArea("Work added, removed or changed",p+"work");
- h+='<div class="grid2">'+fText("Amount added (+) or taken off (-)",p+"amount",{im:"decimal",ph:"500 or -200"})+fText("New finish date",p+"finishDate",{type:"date"})+'</div>';
+ h+='<div class="grid2">'+fText("Amount added (+) or taken off (-)",p+"amount",{money:true,im:"decimal",ph:"500 or -200"})+fText("New finish date",p+"finishDate",{type:"date"})+'</div>';
  h+='<p class="hint">Job total before: '+money(clock?c0.frozen.totalBefore:jobTotal(j))+' · After this change: <b>'+money((clock?c0.frozen.totalBefore:jobTotal(j))+num(clock?c0.frozen.amount:c0.amount))+'</b></p>';
  h+=fSeg("Does it change containment, access or testing?",p+"affects",["No","Yes"]);
  h+='</div>'+lockEnd(clock)+'<div class="card"><h3>Signatures before the extra work</h3>'+fSig("Customer",p+"custSig",!ok)+fSig("Company representative",p+"coSig",!ok)+'<button class="btn pri" data-act="pdf" data-v="change" data-i="'+i+'"'+(j.changes[i].custSig?'':' disabled')+'>Download change (PDF)</button></div>';
@@ -551,25 +578,25 @@ function renderIncident(j,i){
 }
 
 function renderSetup(){
- var s=settings;cur=null;
+ var s=Object.assign({},settings,{device:getDev()});cur=null;
  function st(label,k,o){o=o||{};return '<label class="fld"><span>'+esc(label)+'</span><input data-s="'+k+'" type="'+(o.type||"text")+'"'+(o.im?' inputmode="'+o.im+'"':'')+(o.ph?' placeholder="'+esc(o.ph)+'"':'')+' value="'+esc(s[k]||"")+'"></label>';}
  var h='<div class="top"><div class="in"><h1>Welcome to the Mold Job App</h1></div></div><div class="wrap">'+statusBanners();
  h+='<div class="card"><h2>Set up your company</h2><p class="hint">Fill this in once. Your quotes, agreements and invoices all use it. You can change it any time in Settings.</p>';
  h+='<div class="grid2">'+st("Company name","name",{ph:"Example: Clear Path Mold Remediation"})+st("Owner's name","owner")+st("Main phone","phone",{type:"tel",im:"tel"})+st("Business email","email",{type:"email",im:"email"})+'</div>';
  h+=st("Business address","address");
  h+='<div class="grid2">'+st("MHIC license number","mhic")+st("Inspection fee ($)","fee",{im:"decimal",ph:"Example: 250"})+st("Deposit at signing (% of quote, 33 max)","depositPct",{im:"decimal",ph:"Example: 30"})+st("Usual independent tester","tester")+'</div>';
- h+='<div class="grid2">'+st("This device's letter (A, B, C…)","device",{ph:"A"})+st("Google review link (optional)","review")+'</div><p class="hint">Give each tablet or laptop its own letter so two devices never make the same job number.</p>';
+ h+='<div class="grid2">'+st("This device's code for job numbers (letters only)","device",{ph:"AB"})+st("Google review link (optional)","review")+'</div><p class="hint">Give each tablet or laptop its own letter so two devices never make the same job number.</p>';
  h+='<button class="big" data-act="setupdone" style="margin-top:16px">Start using the app</button></div>';
  h+='<div class="card"><h3>Good to know</h3><p class="hint" style="margin:0">Your jobs are saved on this device only. Turn on this device\'s screen lock (PIN or fingerprint), and make a password-protected backup once a week from Settings.</p></div></div>';
  return h;
 }
 function renderSettings(){
- var s=settings;cur=null;
+ var s=Object.assign({},settings,{device:getDev()});cur=null;
  function st(label,k,o){o=o||{};return '<label class="fld"><span>'+esc(label)+'</span><input data-s="'+k+'" type="'+(o.type||"text")+'"'+(o.im?' inputmode="'+o.im+'"':'')+' value="'+esc(s[k]||"")+'"></label>';}
  var h=topBar("Settings","home")+'<div class="wrap">'+statusBanners();
- h+='<div class="card"><h2>Company info</h2><p class="hint">Fill in once. Every customer copy uses these.</p><div class="grid2">'+st("Company name","name")+st("Owner","owner")+st("Main phone","phone",{type:"tel"})+st("Business email","email",{type:"email"})+'</div>'+st("Business address","address")+'<div class="grid2">'+st("MHIC license number","mhic")+st("Inspection fee ($)","fee",{im:"decimal"})+st("Deposit at signing (% of quote)","depositPct",{im:"decimal"})+st("Usual independent tester","tester")+st("This device's letter (A, B, C…) for job numbers","device")+'</div>'+st("Google review link","review")+'<p class="hint">Give each tablet or laptop its own letter so two devices never make the same job number (2026-A-001, 2026-B-001).</p></div>';
+ h+='<div class="card"><h2>Company info</h2><p class="hint">Fill in once. Every customer copy uses these.</p><div class="grid2">'+st("Company name","name")+st("Owner","owner")+st("Main phone","phone",{type:"tel"})+st("Business email","email",{type:"email"})+'</div>'+st("Business address","address")+'<div class="grid2">'+st("MHIC license number","mhic")+st("Inspection fee ($)","fee",{im:"decimal"})+st("Deposit at signing (% of quote)","depositPct",{im:"decimal"})+st("Usual independent tester","tester")+st("This device's code for job numbers (letters only, unique per device)","device")+'</div>'+st("Google review link","review")+'<p class="hint">Give each tablet or laptop its own letter so two devices never make the same job number (2026-A-001, 2026-B-001).</p></div>';
  h+='<div class="card"><h2>Customer agreements</h2><p class="hint">The app fills in the agreement for each job by itself: the Work Authorization and Direction to Pay for insurance jobs, the Remediation Contract for self-pay jobs, and the Notice of Cancellation when it is signed at the home. This is the November 2026 wording, used until a Maryland attorney reviews it.</p></div>';
- h+='<div class="card"><h2>Backups</h2><p class="hint">Your jobs are saved on this device only. Back up once a week. Each backup is locked with a password you choose. Keep the file somewhere safe off this device, and do not email it.</p><p class="hint">Last backup started: <b>'+esc(lastBackup()?nice(lastBackup()):"never")+'</b></p><div class="row"><button class="btn pri" data-act="backup">Back up now</button><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">Add jobs from a backup<input type="file" accept=".json,application/json" data-act-file="merge" style="display:none"></label><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">Replace everything with a backup<input type="file" accept=".json,application/json" data-act-file="replace" style="display:none"></label></div><p class="hint" style="margin-top:10px"><b>Add jobs</b> keeps everything on this device and brings in jobs it does not have. <b>Replace everything</b> is for a new or reset device.</p><p class="hint">Protect this device with a screen lock (PIN or fingerprint). Anyone who can open it can see your jobs.</p><p class="hint" style="margin-top:12px">'+(db?'Changes save by themselves.':'Saving is off in this browser.')+' <span id="saved">'+esc(saveNote)+'</span></p></div></div>';
+ h+='<div class="card"><h2>Backups</h2><p class="hint">Your jobs are saved on this device only. Back up once a week. Each backup is locked with a password you choose. Keep the file somewhere safe off this device, and do not email it.</p><p class="hint">Last backup started: <b>'+esc(lastBackup()?nice(lastBackup()):"never")+'</b></p><div class="row"><button class="btn pri" data-act="backup">Back up now</button><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">Add jobs from a backup<input type="file" accept=".json,application/json" data-act-file="merge" style="display:none"></label><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">Replace everything with a backup<input type="file" accept=".json,application/json" data-act-file="replace" style="display:none"></label></div><p class="hint" style="margin-top:10px"><b>Add jobs</b> never changes anything on this device: new jobs are added, and if a job differs, both versions are kept side by side. <b>Replace everything</b> is for a new or reset device.</p><p class="hint">Protect this device with a screen lock (PIN or fingerprint). Anyone who can open it can see your jobs.</p><p class="hint" style="margin-top:12px">'+(db?'Changes save by themselves.':'Saving is off in this browser.')+' <span id="saved">'+esc(saveNote)+'</span></p></div></div>';
  return h;
 }
 function renderCrewList(){
@@ -634,22 +661,25 @@ document.addEventListener("click",function(e){
  else if(a==="addpay"){set(cur,"pay.payments",(get(cur,"pay.payments")||[]).concat([{date:today(),amount:"",method:null}]));changed(true);}
  else if(a==="sigclear"){var cv=app.querySelector('canvas[data-sig="'+f+'"]');if(cv){cv.getContext("2d").clearRect(0,0,cv.width,cv.height);cv._blank=true;}}
  else if(a==="sigsave"){var cv2=app.querySelector('canvas[data-sig="'+f+'"]');if(!cv2||cv2._blank){toast("Sign in the box first");return;}
+  if(f.indexOf("crew:")!==0){var me0=moneyErrors(cur);if(me0.length){toast("Fix the amounts marked in red first: "+me0.join(", ")+".");return;}}
   if(f.indexOf("crew:")===0){var cp=f.slice(5);set(curCrew,cp,trimSig(cv2));set(curCrew,cp.replace(/Sig$/,"Date"),today());saveCrew();rerenderKeep();toast("Signature saved");return;}
   if(f==="agree.dtpSig")freezeDtp(cur);else if(f.indexOf("agree.")===0)freezeAgree(cur);
   var mch=f.match(/^changes\.(\d+)\./);if(mch)freezeChange(cur,+mch[1]);
   if(f.indexOf("finish.")===0)freezeFinish(cur);
-  set(cur,f,trimSig(cv2));var dp=f.replace(/Sig$/,"Date");set(cur,dp,today());changed(true);toast("Signature saved");}
+  var img=trimSig(cv2),fr=frozenFor(cur,f),slot=f.split(".").pop();
+  if(fr){var nm=(f==="agree.dtpSig"||f==="agree.ackSig")?(get(cur,"agree.custName")||get(cur,"customer.name")||""):signerName(cur,f);fr.sigs[slot]={name:nm,img:img,date:today(),at:new Date().toISOString()};}
+  set(cur,f,img);var dp=f.replace(/Sig$/,"Date");set(cur,dp,today());changed(true);toast("Signature saved");}
  else if(a==="unsign"){
   if(f.indexOf("crew:")===0){askConfirm("Clear this signature?","The person will need to sign again.",function(){set(curCrew,f.slice(5),null);saveCrew();rerenderKeep();});return;}
   var kind=f==="agree.dtpSig"?"dtp":f.indexOf("agree.")===0?"agree":f.indexOf("finish.")===0?"finish":/^changes\./.test(f)?"change":"";var ci=/^changes\.(\d+)\./.test(f)?+f.split(".")[1]:null;
   askConfirm("Void this signed document?","Every signature on it is removed and it must be signed again. The voided copy is kept in the job's history.",function(){voidDoc(cur,kind,ci);changed(true);toast("Voided. It can be changed and signed again.");});}
  else if(a==="copy"){copyText(b.getAttribute("data-text"));}
  else if(a==="backup"){backupNow();}
- else if(a==="setupdone"){if(!settings.name||!settings.owner){toast("Add the company name and the owner's name first.");return;}clearTimeout(setTimer);saveSettings();view={name:"home",filter:"active",q:""};render();window.scrollTo(0,0);toast("All set. Tap New customer when someone calls.");}
+ else if(a==="setupdone"){if(!settings.name||!settings.owner){toast("Add the company name and the owner's name first.");return;}if(!getDev()){toast("Give this device a letter code first.");return;}clearTimeout(setTimer);saveSettings();view={name:"home",filter:"active",q:""};render();window.scrollTo(0,0);toast("All set. Tap New customer when someone calls.");}
  else if(a==="pdf"){makePdf(v,b.getAttribute("data-i"));}
  else if(a==="mic"){toggleMic(f);}
  else if(a==="stick"){var k=b.getAttribute("data-k");settings[k]=!settings[k];saveSettings();render();}
- else if(a==="addcrew"){var id="c"+Date.now().toString(36);curCrew={id:id,name:"",topics:{}};crew[id]=curCrew;view={name:"crewEdit",filter:view.filter,q:view.q};saveCrew();render();}
+ else if(a==="addcrew"){var id=newId("c");curCrew={id:id,name:"",topics:{}};crew[id]=curCrew;view={name:"crewEdit",filter:view.filter,q:view.q};saveCrew();render();}
  else if(a==="opencrew"){curCrew=clone(crew[b.getAttribute("data-id")]);view={name:"crewEdit",filter:view.filter,q:view.q};render();}
  else if(a==="ctick"){set(curCrew,f,!get(curCrew,f));saveCrew();rerenderKeep();}
  else if(a==="mclose"){var m=document.querySelector(".modal");if(m)m.remove();}
@@ -658,8 +688,9 @@ document.addEventListener("input",function(e){
  var el=e.target;
  if(el.getAttribute("data-act-input")==="search"){view.q=el.value;var pos=el.selectionStart;render();var s=app.querySelector('[data-act-input="search"]');if(s){s.focus();try{s.setSelectionRange(pos,pos);}catch(x){}}return;}
  var f=el.getAttribute("data-f");
- if(f&&cur){set(cur,f,el.value);changed(false);updateCalcs();return;}
+ if(f&&cur){set(cur,f,el.value);if(el.getAttribute("data-money")){var okm=moneyOk(el.value);el.classList.toggle("bad",!okm);var me=el.parentNode.querySelector(".moneyerr");if(me)me.textContent=okm?"":moneyMsg(el.value);}changed(false);updateCalcs();return;}
  var k=el.getAttribute("data-s");
+ if(k==="device"){setDev(el.value);return;}
  if(k){settings[k]=el.value;saveSettingsSoon();return;}
  var c=el.getAttribute("data-c");
  if(c&&curCrew){set(curCrew,c,el.value);saveCrewSoon();}
@@ -681,10 +712,10 @@ function askConfirm(title,body,yes){
 
 // ---------- navigation ----------
 function goStep(i){if(i<0||i>=STEPS.length)return;flushSave();view.step=i;view.sub=null;view.inc=null;render();window.scrollTo(0,0);}
-function devCode(){return String(settings.device||"").toUpperCase().replace(/[^A-Z]/g,"").slice(0,2);}
+function devCode(){return getDev();}
 function nextNum(){var y=new Date().getFullYear(),dc=devCode(),max=0,pre=y+"-"+(dc?dc+"-":"");Object.keys(jobs).forEach(function(k){var n=jobs[k].num||"";if(n.indexOf(pre)===0){var rest=n.slice(pre.length);if(/^\d+$/.test(rest))max=Math.max(max,+rest);}});return pre+String(max+1).padStart(3,"0");}
 function newJob(){
- var id="j"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+ var id=newId("j");
  cur={id:id,num:nextNum(),created:new Date().toISOString(),customer:{},screen:{}};
  jobs[id]=clone(cur);
  view={name:"job",step:0,filter:view.filter,q:view.q};
@@ -742,10 +773,13 @@ function rerenderKeep(){var y=window.scrollY;render();window.scrollTo(0,y);}
 // ---------- PDFs ----------
 function makePdf(kind,idx){
  if(!window.jspdf){toast("PDF maker didn't load. Check the internet connection.");return;}
+ var me1=moneyErrors(cur);if(me1.length){toast("Fix the amounts marked in red first: "+me1.join(", ")+".");return;}
  var j=cur, J=window.jspdf.jsPDF, d=new J({unit:"pt",format:"letter"}), y=54, W=612, L=54, R=W-54;
  function line(t,o){o=o||{};d.setFont("helvetica",o.b?"bold":"normal");d.setFontSize(o.s||11);var parts=d.splitTextToSize(String(t||""),R-L-(o.ind||0));parts.forEach(function(p){if(y>740){d.addPage();y=54;}d.text(p,L+(o.ind||0),y);y+=(o.s||11)*1.4;});}
  function gap(n){y+=n||8;}
- function head(title){d.setFont("helvetica","bold");d.setFontSize(18);d.text(co(),L,y);y+=20;d.setFont("helvetica","normal");d.setFontSize(10);d.text([settings.address,settings.phone,settings.email,settings.mhic?"MHIC #"+settings.mhic:""].filter(Boolean).join("  ·  "),L,y);y+=24;d.setDrawColor(11,107,106);d.setLineWidth(1.5);d.line(L,y-10,R,y-10);d.setFont("helvetica","bold");d.setFontSize(15);d.text(title,L,y+6);y+=28;line("Job "+(j.num||"")+"   ·   "+(get(j,"customer.name")||"")+"   ·   "+(get(j,"customer.address")||""));gap(6);}
+ function head(title,hd){hd=hd||headerSnap(j);d.setFont("helvetica","bold");d.setFontSize(18);d.text(hd.co,L,y);y+=20;d.setFont("helvetica","normal");d.setFontSize(10);d.text([hd.address,hd.phone,hd.email,hd.mhic?"MHIC #"+hd.mhic:""].filter(Boolean).join("  ·  "),L,y);y+=24;d.setDrawColor(11,107,106);d.setLineWidth(1.5);d.line(L,y-10,R,y-10);d.setFont("helvetica","bold");d.setFontSize(15);d.text(title,L,y+6);y+=28;line("Job "+(hd.num||"")+"   ·   "+(hd.custName||"")+"   ·   "+(hd.custAddress||""));gap(6);}
+ function fsig(label,fr,slot,liveImg,liveDate,liveName){var g=fr&&fr.sigs&&fr.sigs[slot];if(g)sig(label+": "+(g.name||""),g.img,g.date);else sig(label+(liveName?": "+liveName:""),liveImg,liveDate);}
+ function stamp(fr){if(fr&&fr.at){gap(4);line("Signed record created "+new Date(fr.at).toLocaleString("en-US")+". This copy prints exactly what was signed.",{s:8});}}
  function kv(k,v){if(!v)return;line(k+": "+v);}
  function sig(label,src,dt){if(y>640){d.addPage();y=54;}line(label,{b:true});if(src){try{d.addImage(src,"PNG",L,y,210,60);}catch(x){}y+=64;}else{d.line(L,y+40,L+260,y+40);y+=50;}if(dt)line("Date: "+nice(dt),{s:10});gap(6);}
  var fname=(j.num||"job")+"-";
@@ -760,36 +794,36 @@ function makePdf(kind,idx){
   gap();line("We do not promise that insurance will pay, that all mold is gone from the whole property, or that the property is medically safe. This is a quote only; work starts after a signed agreement.",{s:10});
   fname+="quote.pdf";
  } else if(kind==="agree"){
-  head(isIns(j)?"Work Authorization and Agreement":"Mold Remediation Contract");
-  (get(j,"agree.frozen")?get(j,"agree.frozen").text:agreementText(j)).split("\n").slice(3).forEach(function(t){if(!t){gap(4);return;}var b=/^[0-9]+\. [A-Z]|^[A-Z][A-Z ]+$|^MARYLAND|^YOUR RIGHT|^PHOTOS/.test(t);line(t,{b:b,s:b?11:10});});
-  gap();sig("Customer: "+(get(j,"agree.custName")||get(j,"customer.name")||""),get(j,"agree.custSig"),get(j,"agree.custDate"));sig("Company: "+(get(j,"agree.coName")||settings.owner||""),get(j,"agree.coSig"),get(j,"agree.coDate"));
+  var af=get(j,"agree.frozen");head((af?af.payType==="Insurance":isIns(j))?"Work Authorization and Agreement":"Mold Remediation Contract",af&&af.header);
+  (af?af.text:agreementText(j)).split("\n").slice(3).forEach(function(t){if(!t){gap(4);return;}var b=/^[0-9]+\. [A-Z]|^[A-Z][A-Z ]+$|^MARYLAND|^YOUR RIGHT|^PHOTOS/.test(t);line(t,{b:b,s:b?11:10});});
+  gap();fsig("Customer",af,"custSig",null,null,get(j,"agree.custName")||get(j,"customer.name"));fsig("Company",af,"coSig",null,null,get(j,"agree.coName")||settings.owner);stamp(af);
   fname+="agreement.pdf";
  } else if(kind==="dtp"){
-  head("Direction to Pay");
-  (get(j,"agree.dtpFrozen")?get(j,"agree.dtpFrozen").text:dtpText(j)).split("\n").slice(2).forEach(function(t){if(!t){gap(4);return;}line(t,{s:10});});
-  gap();sig("Insured: "+(get(j,"agree.custName")||get(j,"customer.name")||""),get(j,"agree.dtpSig"),get(j,"agree.dtpDate"));
+  var dfz=get(j,"agree.dtpFrozen");head("Direction to Pay",dfz&&dfz.header);
+  (dfz?dfz.text:dtpText(j)).split("\n").slice(2).forEach(function(t){if(!t){gap(4);return;}line(t,{s:10});});
+  gap();fsig("Insured",dfz,"dtpSig",null,null,get(j,"agree.custName")||get(j,"customer.name"));stamp(dfz);
   fname+="direction-to-pay.pdf";
  } else if(kind==="cancel"){
-  head("Notice of Cancellation");
+  var cf=get(j,"agree.frozen");head("Notice of Cancellation",cf&&cf.header);
   cancelText(j).split("\n").slice(1).forEach(function(t){if(!t){gap(4);return;}line(t,{s:10,b:/^I HEREBY|^You may cancel/.test(t)});});
   d.addPage();y=54;line("Acknowledgment of Oral Notice of Right to Cancel",{b:true,s:14});gap();
-  ackText(j).split("\n").slice(1).forEach(function(t){if(!t){gap(4);return;}line(t,{s:11});});
-  gap();sig("Customer",get(j,"agree.ackSig"),get(j,"agree.ackDate"));
+  (cf?cf.ack:ackText(j)).split("\n").slice(1).forEach(function(t){if(!t){gap(4);return;}line(t,{s:11});});
+  gap();fsig("Customer",cf,"ackSig",null,null,get(j,"customer.name"));
   fname+="notice-of-cancellation.pdf";
  } else if(kind==="change"){
-  var c=j.changes[+idx], z=c.frozen||{date:c.date,reason:c.reason,work:c.work,amount:num(c.amount),finishDate:c.finishDate,affects:c.affects,totalBefore:jobTotal(j)};head("Change "+(+idx+1));
+  var c=j.changes[+idx], z=c.frozen||{date:c.date,reason:c.reason,work:c.work,amount:num(c.amount),finishDate:c.finishDate,affects:c.affects,totalBefore:jobTotal(j)};head("Change "+(+idx+1),c.frozen&&c.frozen.header);
   kv("Date",nice(z.date));gap();line("What we found and why",{b:true});line(z.reason);line("Work added, removed or changed",{b:true});line(z.work);gap();kv("Amount",money(z.amount));kv("Job total before this change",money(z.totalBefore));kv("Job total after this change",money(num(z.totalBefore)+num(z.amount)));kv("New finish date",nice(z.finishDate));kv("Changes containment, access or testing",z.affects);
-  gap();sig("Customer",c.custSig,c.custDate);sig("Company",c.coSig,c.coDate);
+  gap();fsig("Customer",c.frozen,"custSig",null,null,get(j,"customer.name"));fsig("Company",c.frozen,"coSig",null,null,settings.owner);stamp(c.frozen);
   fname+="change-"+(+idx+1)+".pdf";
  } else if(kind==="finish"){
-  head("Certificate of Completion");
-  if(isIns(j)){kv("Insurance",(get(j,"ins.company")||"")+" · Claim #"+(get(j,"ins.claim")||""));kv("Mortgage company",get(j,"ins.mortgage"));}
+  var ffz=get(j,"finish.frozen");head("Certificate of Completion",ffz&&ffz.header);
+  if(ffz){kv("Insurance",ffz.insurer);kv("Mortgage company",ffz.mortgage);}else if(isIns(j)){kv("Insurance",(get(j,"ins.company")||"")+" · Claim #"+(get(j,"ins.claim")||""));kv("Mortgage company",get(j,"ins.mortgage"));}
   var fz=get(j,"finish.frozen")||{date:get(j,"finish.date"),checks:get(j,"finish.checks")||{},notDone:get(j,"finish.notDone"),source:get(j,"finish.source"),tester:get(j,"finish.tester")||get(j,"quote.tester")};
   kv("Work finished",nice(fz.date));gap();FINISH_CHECKS.forEach(function(k){line(((fz.checks||{})[k[0]]?"[x] ":"[ ] ")+k[1]);});
   gap();kv("Not finished yet",fz.notDone||"None");kv("Water problem fixed",fz.source);kv("Independent tester",fz.tester);
   if(get(j,"finish.result")||get(j,"finish.reportDate")){gap();line("Independent test (filled in after signing)",{b:true});kv("Test report date",nice(get(j,"finish.reportDate")));kv("Test result",get(j,"finish.result"));}
-  gap();line(finishMeaning(j)+" Finishing our work is not the same as passing the independent test.",{s:10});
-  gap();sig("Company representative",get(j,"finish.coSig"),get(j,"finish.coDate"));sig("Customer (received)",get(j,"finish.custSig"),get(j,"finish.custDate"));
+  gap();line((ffz?ffz.meaning:finishMeaning(j))+" Finishing our work is not the same as passing the independent test.",{s:10});
+  gap();fsig("Company representative",ffz,"coSig",null,null,settings.owner);fsig("Customer",ffz,"custSig",null,null,get(j,"customer.name"));stamp(ffz);
   fname+="certificate-of-completion.pdf";
  } else if(kind==="invoice"){
   head("Invoice");
@@ -834,9 +868,9 @@ var LocalStore=(function(){
   onSnapshot:function(n){return listen(function(){n(snapColl(path));});}};}
  function txWrite(ops,clearFirst){return new Promise(function(res,rej){
   if(!idb){try{var next=clearFirst?{}:JSON.parse(JSON.stringify(mem));ops.forEach(function(o){next[o.k]=o.v;});localStorage.setItem(DBN,JSON.stringify(next));mem=next;notify();res();}catch(e){rej(e);}return;}
-  try{var tx=idb.transaction(ST,"readwrite"),os=tx.objectStore(ST);if(clearFirst)os.clear();ops.forEach(function(o){os.put(o.v,o.k);});
+  var tx=null;try{tx=idb.transaction(ST,"readwrite");var os=tx.objectStore(ST);if(clearFirst)os.clear();ops.forEach(function(o){os.put(o.v,o.k);});
    tx.oncomplete=function(){if(clearFirst)mem={};ops.forEach(function(o){mem[o.k]=JSON.parse(JSON.stringify(o.v));});notify();res();};
-   tx.onerror=function(){rej(tx.error||new Error("write failed"));};tx.onabort=function(){rej(tx.error||new Error("write aborted"));};}catch(e){rej(e);}
+   tx.onerror=function(){rej(tx.error||new Error("write failed"));};tx.onabort=function(){rej(tx.error||new Error("write aborted"));};}catch(e){try{tx&&tx.abort();}catch(x){}rej(e);}
  });}
  return {ready:ready,doc:docRef,collection:collRef,all:function(){return JSON.parse(JSON.stringify(mem));},txWrite:txWrite,get:function(k){return mem[k];},usesIDB:function(){return !!idb;}};
 })();
@@ -882,6 +916,9 @@ function backupNow(){
   }catch(e){toast("The backup didn't work. Nothing was changed. Try again.");}
  });
 }
+function getDev(){try{return (localStorage.getItem("moldJobAppDevice")||"").toUpperCase();}catch(e){return "";}}
+function setDev(v){var c=String(v||"").toUpperCase().replace(/[^A-Z]/g,"").slice(0,3);try{localStorage.setItem("moldJobAppDevice",c);}catch(e){}return c;}
+(function(){if(!getDev()){var L="ABCDEFGHJKLMNPQRSTUVWXYZ";var a=new Uint8Array(2);try{crypto.getRandomValues(a);}catch(e){a=[Math.random()*255,Math.random()*255];}setDev(L[a[0]%L.length]+L[a[1]%L.length]);}})();
 function lastBackup(){try{return localStorage.getItem("moldJobAppLastBackup")||"";}catch(e){return "";}}
 function daysSince(ds){if(!ds)return 9999;var p=ds.split("-");var d=new Date(+p[0],+p[1]-1,+p[2]);return Math.floor((Date.now()-d.getTime())/86400000);}
 var restoreMode="merge";
@@ -900,12 +937,21 @@ function restoreFile(file){
     askConfirm("Replace everything on this device?","The backup from "+nice((obj.saved||"").slice(0,10))+" has "+n+" job"+(n===1?"":"s")+". Every job on this device now will be replaced by it.",function(){
      LocalStore.txWrite(keys.map(function(k){return {k:k,v:docs[k]};}),true).then(function(){toast("Backup restored.");setTimeout(function(){location.reload();},800);},function(){toast("Restore failed. Nothing was changed.");});});
    } else {
-    var ops=[],added=0,updated=0;
-    keys.forEach(function(k){var mine=LocalStore.get(k),theirs=docs[k];
-     if(k==="settings/company"){if(!mine)ops.push({k:k,v:theirs});return;}
-     if(!mine){ops.push({k:k,v:theirs});if(k.indexOf("jobs/")===0)added++;}
-     else if((theirs.updatedAt||"")>(mine.updatedAt||"")){ops.push({k:k,v:theirs});if(k.indexOf("jobs/")===0)updated++;}});
-    askConfirm("Add jobs from this backup?",added+" new job"+(added===1?"":"s")+" will be added and "+updated+" will be updated to the newer copy. Jobs already on this device stay.",function(){
+    var ops=[],added=0,same=0,conflicts=0,renumbered=0,mine=LocalStore.all();
+    var nums={};Object.keys(mine).forEach(function(k){if(k.indexOf("jobs/")===0&&mine[k].num)nums[mine[k].num]=k;});
+    keys.forEach(function(k){var a=mine[k],b=docs[k];
+     if(k==="settings/company"){if(!a)ops.push({k:k,v:b});return;}
+     if(k.indexOf("jobs/")!==0&&k.indexOf("crew/")!==0)return;
+     var isJob=k.indexOf("jobs/")===0, v=JSON.parse(JSON.stringify(b));
+     if(a&&JSON.stringify(a)===JSON.stringify(b)){same++;return;}
+     var key=k;
+     if(a){var nid=newId(isJob?"j":"c");key=(isJob?"jobs/":"crew/")+nid;v.id=nid;v.conflictOf=k.split("/")[1];v.importedAt=new Date().toISOString();if(isJob)v.num=(v.num||"")+" (copy from backup)";else v.name=(v.name||"")+" (copy from backup)";conflicts++;}
+     else if(isJob)added++;
+     if(isJob&&v.num&&nums[v.num]&&nums[v.num]!==key){v.num=v.num+" (number already used)";renumbered++;}
+     if(isJob&&v.num)nums[v.num]=key;
+     ops.push({k:key,v:v});});
+    var msg=added+" new job"+(added===1?"":"s")+" will be added. "+(conflicts?conflicts+" job"+(conflicts===1?" is":"s are")+" different on this device and in the backup: both versions are kept, and the backup's copy is marked \"copy from backup\" so you can compare them. ":"")+(renumbered?renumbered+" imported job number"+(renumbered===1?" was":"s were")+" already in use and "+(renumbered===1?"is":"are")+" marked. ":"")+(same?same+" already match. ":"")+"Nothing already on this device is changed.";
+    askConfirm("Add jobs from this backup?",msg,function(){
      LocalStore.txWrite(ops,false).then(function(){toast("Jobs added.");setTimeout(function(){location.reload();},800);},function(){toast("That didn't work. Nothing was changed.");});});
    }
   };
