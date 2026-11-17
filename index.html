@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mold Job App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<script src="jspdf.umd.min.js"></script>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0F2A3A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mold Jobs">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{--ink:#0F2A3A;--ink2:#344B59;--mute:#4A6170;--line:#D5E0E5;--bg:#F3F7F8;--card:#FFFFFF;--acc:#0B6B6A;--acc2:#08504F;--accbg:#E2F2F1;--warn:#8A5A00;--warnbg:#FFF4DB;--bad:#A32020;--badbg:#FBE9E9;--good:#1F6B32;--goodbg:#E5F4E8}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:18px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{font-family:"Space Grotesk",Inter,sans-serif;margin:0;line-height:1.15}
+.wrap{max-width:900px;margin:0 auto;padding:16px 16px 140px}
+.top{background:var(--ink);color:#fff;position:sticky;top:0;z-index:5}
+.top .in{max-width:900px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.top h1{font-size:22px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top button{background:transparent;border:1.5px solid #6E8796;color:#fff;border-radius:10px;padding:10px 14px;min-height:48px;cursor:pointer;font-weight:600}
+.banner{border-radius:12px;padding:14px 16px;margin:12px 0;font-size:16px}
+.banner.warn{background:var(--warnbg);color:#5C3D00;border:1px solid #E7C977}
+.banner.bad{background:var(--badbg);color:var(--bad);border:1px solid #E9B4B4}
+.banner.ok{background:var(--goodbg);color:var(--good);border:1px solid #A9D6B2}
+.big{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:64px;border-radius:14px;border:none;background:var(--acc);color:#fff;font-weight:700;font-size:20px;cursor:pointer}
+.big:active{background:var(--acc2)}
+.btn{min-height:52px;padding:0 18px;border-radius:12px;border:1.5px solid var(--ink);background:#fff;font-weight:600;cursor:pointer}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.sm{min-height:44px;font-size:16px;padding:0 14px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0}
+.card h2{font-size:24px;margin-bottom:6px}
+.card h3{font-size:20px;margin:6px 0 10px}
+.hint{color:var(--mute);font-size:16px;margin:4px 0 12px}
+.fld{display:flex;flex-direction:column;gap:6px;margin:12px 0}
+.fld>span{font-weight:600;font-size:16px}
+.fld input,.fld select,.fld textarea{width:100%;min-height:52px;padding:12px 14px;border:1.5px solid #9FB3BD;border-radius:10px;background:#fff}
+.fld textarea{min-height:110px;resize:vertical}
+.fld input:focus,.fld textarea:focus,.fld select:focus{outline:3px solid #8CD3D1;border-color:var(--acc)}
+.areawrap{position:relative}
+.mic{position:absolute;right:8px;bottom:8px;width:48px;height:48px;border-radius:24px;border:1.5px solid var(--line);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.mic.on{background:var(--bad);border-color:var(--bad);color:#fff}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.seg button{min-height:52px;padding:0 18px;border-radius:12px;border:1.5px solid #9FB3BD;background:#fff;cursor:pointer;font-weight:500}
+.seg button.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+.tick{display:flex;align-items:center;gap:14px;width:100%;min-height:56px;padding:10px 14px;margin:8px 0;border-radius:12px;border:1.5px solid #9FB3BD;background:#fff;cursor:pointer;text-align:left}
+.tick .box{width:30px;height:30px;border-radius:8px;border:2px solid #6E8796;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.tick.on{border-color:var(--acc);background:var(--accbg)}
+.tick.on .box{background:var(--acc);border-color:var(--acc);color:#fff}
+.jobs{display:flex;flex-direction:column;gap:12px;margin-top:14px}
+.job{display:flex;gap:14px;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;cursor:pointer;text-align:left;width:100%;min-height:84px}
+.job .n{font-size:14px;color:var(--mute);font-weight:600}
+.job .nm{font-size:20px;font-weight:700}
+.job .nx{font-size:16px;color:var(--ink2)}
+.pill{display:inline-block;padding:6px 12px;border-radius:999px;font-size:14px;font-weight:700;white-space:nowrap}
+.p-new{background:#E8EDF0;color:#2F4553}.p-visit{background:#EEE8FA;color:#4B2F86}.p-quote{background:var(--warnbg);color:#6B4700}.p-work{background:#E3EEFB;color:#1D4E89}.p-pay{background:#FBE8F2;color:#8A1F5A}.p-done{background:var(--goodbg);color:var(--good)}.p-lost{background:var(--badbg);color:var(--bad)}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.tabs button{min-height:48px;padding:0 16px;border-radius:999px;border:1.5px solid #9FB3BD;background:#fff;font-weight:600;cursor:pointer}
+.tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.steps{display:flex;gap:8px;overflow-x:auto;padding:12px 0 6px;scrollbar-width:thin}
+.steps button{flex-shrink:0;min-height:48px;padding:0 14px;border-radius:12px;border:1.5px solid #9FB3BD;background:#fff;font-weight:600;cursor:pointer;font-size:16px;display:flex;align-items:center;gap:8px}
+.steps button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.steps .dot{width:10px;height:10px;border-radius:5px;background:#C4D1D7}
+.steps .dot.done{background:#2E9E5B}
+.bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);z-index:6}
+.bar .in{max-width:900px;margin:0 auto;padding:12px 16px calc(12px + env(safe-area-inset-bottom));display:flex;gap:12px;align-items:center}
+.bar .btn{flex:1;min-height:60px;font-size:19px}
+.saved{font-size:14px;color:var(--mute);min-width:70px;text-align:center}
+table.lines{width:100%;border-collapse:collapse}
+table.lines td{padding:6px 4px;vertical-align:top}
+table.lines input{width:100%;min-height:52px;padding:10px 12px;border:1.5px solid #9FB3BD;border-radius:10px}
+.total{font-size:26px;font-weight:700;font-family:"Space Grotesk",sans-serif}
+.msg{background:var(--accbg);border:1px solid #A8D8D6;border-radius:14px;padding:16px;margin:14px 0}
+.msg .t{font-weight:700;font-size:16px;margin-bottom:6px}
+.msg .b{white-space:pre-wrap;font-size:17px;margin-bottom:12px}
+.result{border-radius:14px;padding:16px;font-size:18px;font-weight:600;margin:12px 0}
+.result.green{background:var(--goodbg);color:var(--good)}.result.yellow{background:var(--warnbg);color:#5C3D00}.result.red{background:var(--badbg);color:var(--bad)}.result.none{background:#E8EDF0;color:#2F4553}
+.sig{border:2px dashed #9FB3BD;border-radius:12px;background:#fff;touch-action:none;width:100%;height:170px;display:block}
+.sigimg{border:1px solid var(--line);border-radius:12px;background:#fff;max-width:100%;height:150px;object-fit:contain;display:block}
+.list-item{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px;border:1px solid var(--line);border-radius:12px;margin:8px 0;background:#fff;cursor:pointer;width:100%;text-align:left;min-height:64px}
+.empty{color:var(--mute);text-align:center;padding:40px 12px}
+.toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:12px;z-index:20;font-weight:600;max-width:90vw}
+.modal{position:fixed;inset:0;background:rgba(15,42,58,.5);z-index:30;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal .box2{background:#fff;border-radius:16px;padding:22px;max-width:520px;width:100%}
+.contract{white-space:pre-wrap;background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;max-height:340px;overflow:auto;font-size:16px}
+@media (max-width:560px){html,body{font-size:17px}.top h1{font-size:19px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(function(){
+"use strict";
+// ---------- state ----------
+var db=null, dict=null, dl=null;
+var jobs={}, settings={}, crew={};
+var view={name:"home",filter:"active",q:""};
+var cur=null; // working copy of open job
+var curCrew=null;
+var saveTimer=null, saving=false, pendingSave=false, saveNote="";
+var loaded=false, offline=false, writeBlocked=false;
+var micPath=null;
+
+var STEPS=[
+ {k:"customer",t:"Customer"},
+ {k:"screen",t:"Screening"},
+ {k:"visit",t:"Site visit"},
+ {k:"quote",t:"Quote"},
+ {k:"agree",t:"Agreement"},
+ {k:"changes",t:"Changes"},
+ {k:"logs",t:"Work days"},
+ {k:"finish",t:"Finish"},
+ {k:"pay",t:"Payment"}
+];
+var COUNTIES=["Montgomery","Prince George's","Frederick","Howard","Other"];
+var LINE_DEFAULTS=["Containment and protection","Negative pressure setup and monitoring","Removal of affected materials","HEPA vacuum and cleaning","Bagging, hauling and disposal"];
+var START_CHECKS=[["scope","Approved quote on hand"],["access","Access arranged with customer"],["safety","Safety talk done"],["ppe","PPE and respirators checked"],["cont","Containment checked, zipper door closed"],["neg","Negative pressure running"],["equip","Equipment inspected"],["occ","People in the home know which areas are off limits"]];
+var END_CHECKS=[["secure","Work area secured"],["cont2","Containment checked"],["equip2","Equipment status noted"],["next","Tomorrow's tasks written down"],["inc","Incident record done (if anything happened)"]];
+var FINISH_CHECKS=[["removal","All agreed removal done"],["clean","Cleaning done"],["review","Work area looked over, anything left written down"],["waste","Waste removed and record saved"],["photos","Photos and readings saved in CaseLens Pro"],["tester","Independent tester scheduled"],["plastic","Plastic comes down only when the testing plan allows"],["inv","All equipment accounted for"],["summary","Customer given the completion summary"]];
+var TRAIN=[["cont","Containment and negative pressure"],["remove","Safe removal and dust control"],["clean","Cleaning and keeping contamination contained"],["ppe","PPE and respirator rules"],["sds","Product labels and safety data sheets"],["tools","Tools, electrical and ladder safety"],["waste","Waste handling and equipment cleaning"],["home","Photos, logs and respecting the customer's home"],["stop","When to stop work and how to report an incident"]];
+
+// ---------- helpers ----------
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function get(o,p){var a=p.split(".");for(var i=0;i<a.length;i++){if(o==null)return undefined;o=o[a[i]];}return o;}
+function set(o,p,v){var a=p.split(".");for(var i=0;i<a.length-1;i++){var k=a[i];if(o[k]==null||typeof o[k]!=="object")o[k]=/^\d+$/.test(a[i+1])?[]:{};o=o[k];}o[a[a.length-1]]=v;}
+function money(n){n=Number(n)||0;return "$"+n.toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:2});}
+function num(v){var n=parseFloat(String(v==null?"":v).replace(/[^0-9.\-]/g,""));return isNaN(n)?0:n;}
+function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function nice(d){if(!d)return "";var p=d.split("-");if(p.length!==3)return d;var m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return m[+p[1]-1]+" "+(+p[2])+", "+p[0];}
+function clone(o){return JSON.parse(JSON.stringify(o||{}));}
+function co(){return settings.name||"[Company Name]";}
+function toast(t){var el=document.createElement("div");el.className="toast";el.textContent=t;document.body.appendChild(el);setTimeout(function(){el.remove();},2600);}
+
+// ---------- calculations ----------
+function quoteTotal(j){var s=0;(get(j,"quote.lines")||[]).forEach(function(l){s+=num(l.price);});return s;}
+function changesTotal(j){var s=0;(j.changes||[]).forEach(function(c){if(c.custSig)s+=num(c.amount);});return s;}
+function jobTotal(j){return quoteTotal(j)+changesTotal(j);}
+function paidTotal(j){var s=0;(get(j,"pay.payments")||[]).forEach(function(p){s+=num(p.amount);});return s;}
+function balance(j){return jobTotal(j)-paidTotal(j);}
+function screenResult(j){
+ var s=j.screen||{};
+ var keys=["owner","area","photos","timing","fixed","fee"];
+ var answered=keys.filter(function(k){return s[k];}).length;
+ if(s.area==="no"||s.fee==="no"||s.timing==="no"||s.owner==="no")return "red";
+ if(answered<keys.length)return answered?"yellow":"none";
+ if(keys.every(function(k){return s[k]==="yes";}))return "green";
+ return "yellow";
+}
+function stageOf(j){
+ if(j.lost)return {t:"Lost / not a fit",c:"p-lost",step:0};
+ if(screenResult(j)==="red")return {t:"Not a fit",c:"p-lost",step:1};
+ var qt=quoteTotal(j);
+ if(get(j,"agree.custSig")){
+  if(inCancel(j))return {t:"Cancel period",c:"p-quote",step:4};
+  if(!get(j,"finish.date"))return {t:"Work in progress",c:"p-work",step:6};
+  if(jobTotal(j)>0&&balance(j)<=0)return {t:"Paid / closed",c:"p-done",step:8};
+  return {t:"Waiting on payment",c:"p-pay",step:8};
+ }
+ if(qt>0)return get(j,"quote.sentDate")?{t:"Quote sent",c:"p-quote",step:4}:{t:"Writing quote",c:"p-quote",step:3};
+ if(get(j,"visit.date"))return {t:"Site visit booked",c:"p-visit",step:2};
+ if(screenResult(j)==="green")return {t:"Ready to book visit",c:"p-visit",step:2};
+ return {t:"New call",c:"p-new",step:1};
+}
+function nextAction(j){
+ var st=stageOf(j).t, r=screenResult(j);
+ if(j.lost||st==="Not a fit")return "No further action";
+ if(!get(j,"customer.name")||!get(j,"customer.phone"))return "Finish customer info";
+ if(r!=="green")return r==="yellow"?"Waiting on screening answers":"Ask the screening questions";
+ if(!get(j,"visit.date"))return "Book the site visit";
+ if(!quoteTotal(j))return "Write the quote";
+ if(!get(j,"quote.approved"))return "Owner approves the quote";
+ if(!get(j,"quote.sentDate"))return "Send the quote";
+ if(!get(j,"customer.payType"))return "Pick insurance or self-pay";
+ if(!get(j,"agree.custSig"))return "Get the agreement signed";
+ if(isIns(j)&&!get(j,"agree.dtpSig"))return "Get the Direction to Pay signed";
+ if(inCancel(j))return "Wait until after "+nice(cancelEnds(j))+" to start or take money";
+ if(!get(j,"finish.date"))return "Log today's work";
+ if(balance(j)>0)return "Collect "+money(balance(j));
+ return "Ask for a Google review";
+}
+function stepDone(j,k){
+ switch(k){
+  case "customer":return !!(get(j,"customer.name")&&get(j,"customer.phone")&&get(j,"customer.address"));
+  case "screen":return screenResult(j)==="green";
+  case "visit":return !!get(j,"visit.date")&&!!get(j,"visit.seen");
+  case "quote":return quoteTotal(j)>0&&!!get(j,"quote.approved");
+  case "agree":return !!get(j,"agree.custSig")&&!!get(j,"agree.coSig");
+  case "changes":return (j.changes||[]).length>0&&(j.changes||[]).every(function(c){return c.custSig;});
+  case "logs":return (j.logs||[]).length>0;
+  case "finish":return !!get(j,"finish.date");
+  case "pay":return jobTotal(j)>0&&balance(j)<=0;
+ }
+ return false;
+}
+
+// ---------- message templates ----------
+function fill(t,j){
+ var c=j.customer||{};
+ return t.replace(/\[Name\]/g,(c.name||"").split(" ")[0]||"there").replace(/\[Company\]/g,co()).replace(/\[Address\]/g,c.address||"your property").replace(/\[Fee\]/g,settings.fee?money(settings.fee):"$[fee]").replace(/\[Phone\]/g,settings.phone||"[phone]").replace(/\[Day\]/g,nice(get(j,"visit.date"))||"[day]").replace(/\[Time\]/g,get(j,"visit.time")||"[time]").replace(/\[Total\]/g,money(jobTotal(j))).replace(/\[Valid\]/g,nice(get(j,"quote.validUntil"))||"[date]").replace(/\[Start\]/g,nice(get(j,"agree.startDate"))||"[date]").replace(/\[Tester\]/g,get(j,"quote.tester")||settings.tester||"the independent tester").replace(/\[Job\]/g,j.num||"").replace(/\[Balance\]/g,money(balance(j))).replace(/\[Review\]/g,settings.review||"[review link]");
+}
+var MSG={
+ first:"Hi [Name], this is [Company]. Thanks for reaching out about the mold at [Address]. To get you on the schedule, please reply with 2 or 3 photos of the area. We'll send visit times right after.",
+ nudge:"Hi [Name], just checking in. We still need a few photos of the area before we can book your inspection. Reply here anytime.",
+ notfit:"Thanks for contacting [Company]. This one is outside what we do, so we're not the right company for it. We wish you the best getting it taken care of.",
+ booked:"You're booked for [Day] at [Time] at [Address]. The [Fee] inspection fee comes off your bill if you hire us. Please make sure we can get to the area, and keep pets put away.",
+ quote:"Hi [Name], your written quote for [Address] is attached. It lists exactly what we'll remove and clean, how long it should take, and what isn't included. The total is [Total]. Reply or call [Phone] with any questions.",
+ quoteFollow:"Hi [Name], your quote is good until [Valid]. Reply YES and we'll send the agreement and open dates.",
+ signed:"Thanks, [Name]. Your start date is [Start]. Our crew will seal off the work area and keep machines running the whole time. Call [Phone] with any questions.",
+ change:"Hi [Name], we found more than expected. Before doing any extra work we need your OK on the change. We'll go over the photos and the new total with you.",
+ done:"We've finished the removal and cleaning at [Address]. [Tester] will contact you to schedule the independent check. The plastic stays up until then.",
+ invoice:"Your invoice for job [Job] is attached. The balance is [Balance]. Thank you for choosing [Company].",
+ paid:"Payment received, thank you. If you were happy with our work, a quick Google review helps a small business a lot: [Review]"
+};
+function msgCard(title,key,j){
+ var t=fill(MSG[key],j);
+ var ph=(get(j,"customer.phone")||"").replace(/[^0-9+]/g,"");
+ return '<div class="msg"><div class="t">Text to send: '+esc(title)+'</div><div class="b">'+esc(t)+'</div><div class="row"><button class="btn sm pri" data-act="copy" data-text="'+esc(t)+'">Copy text</button>'+(ph?'<a class="btn sm" style="display:inline-flex;align-items:center;text-decoration:none;color:inherit" href="sms:'+esc(ph)+'?&body='+encodeURIComponent(t)+'">Open in Messages</a><span class="hint" style="margin:0">'+esc(get(j,"customer.phone"))+'</span>':'')+'</div></div>';
+}
+
+// ---------- field builders ----------
+function fText(label,p,o){o=o||{};var v=get(cur,p);return '<label class="fld"><span>'+esc(label)+'</span><input data-f="'+p+'" type="'+(o.type||"text")+'"'+(o.im?' inputmode="'+o.im+'"':'')+(o.ph?' placeholder="'+esc(o.ph)+'"':'')+' value="'+esc(v==null?"":v)+'"></label>';}
+function fArea(label,p,o){o=o||{};var v=get(cur,p);return '<label class="fld"><span>'+esc(label)+'</span><div class="areawrap"><textarea data-f="'+p+'"'+(o.ph?' placeholder="'+esc(o.ph)+'"':'')+'>'+esc(v||"")+'</textarea>'+(dict?'<button type="button" class="mic'+(micPath===p?' on':'')+'" data-act="mic" data-f="'+p+'" aria-label="Talk to type">'+micIcon()+'</button>':'')+'</div></label>';}
+function fSeg(label,p,opts){var v=get(cur,p);return '<div class="fld"><span>'+esc(label)+'</span><div class="seg">'+opts.map(function(op){var val=Array.isArray(op)?op[0]:op, lab=Array.isArray(op)?op[1]:op;return '<button type="button" class="'+(v===val?'on':'')+'" data-act="pick" data-f="'+p+'" data-v="'+esc(val)+'">'+esc(lab)+'</button>';}).join("")+'</div></div>';}
+function fTick(label,p){var on=!!get(cur,p);return '<button type="button" class="tick'+(on?' on':'')+'" data-act="tick" data-f="'+p+'"><span class="box">'+(on?'✓':'')+'</span><span>'+esc(label)+'</span></button>';}
+function fSig(label,p,disabled){var v=get(cur,p);
+ if(v)return '<div class="fld"><span>'+esc(label)+'</span><img class="sigimg" alt="Signature" src="'+esc(v)+'"><div class="row" style="margin-top:8px"><button type="button" class="btn sm" data-act="unsign" data-f="'+p+'">Clear and sign again</button></div></div>';
+ if(disabled)return '<div class="fld"><span>'+esc(label)+'</span><div class="banner warn" style="margin:0">Signing is locked until the attorney-approved agreement wording is added in Settings.</div></div>';
+ return '<div class="fld"><span>'+esc(label)+' (sign with a finger)</span><canvas class="sig" data-sig="'+p+'" width="700" height="200"></canvas><div class="row" style="margin-top:8px"><button type="button" class="btn sm" data-act="sigclear" data-f="'+p+'">Clear</button><button type="button" class="btn sm pri" data-act="sigsave" data-f="'+p+'">Save signature</button></div></div>';}
+function micIcon(){return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>';}
+
+
+// ---------- agreements ----------
+var HOLIDAYS=["2026-01-01","2026-01-19","2026-02-16","2026-05-25","2026-06-19","2026-07-03","2026-09-07","2026-10-12","2026-11-11","2026-11-26","2026-11-27","2026-12-25","2027-01-01","2027-01-18","2027-02-15","2027-05-31","2027-06-18","2027-07-05","2027-09-06","2027-10-11","2027-11-11","2027-11-25","2027-11-26","2027-12-24","2027-12-31"];
+function isIns(j){return get(j,"customer.payType")==="Insurance";}
+function ymd(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function addBizDays(ds,n){if(!ds)return "";var p=ds.split("-");var d=new Date(+p[0],+p[1]-1,+p[2]);var c=0;while(c<n){d.setDate(d.getDate()+1);var w=d.getDay();if(w!==0&&w!==6&&HOLIDAYS.indexOf(ymd(d))<0)c++;}return ymd(d);}
+function cancelEnds(j){if(get(j,"agree.atHome")!=="Yes")return "";var dt=get(j,"agree.custDate");if(!dt)return "";return addBizDays(dt,get(j,"agree.senior")==="Yes"?7:5);}
+function inCancel(j){var e=cancelEnds(j);return !!e&&today()<=e;}
+function B(v){return v?String(v):"________";}
+var MHIC_NOTICE="MARYLAND HOME IMPROVEMENT COMMISSION NOTICE\nEach contractor must be licensed by the Maryland Home Improvement Commission, and anyone may ask the Commission about a contractor or subcontractor. Commission phone: 410-230-6231 or 1-888-218-5925. Website: labor.maryland.gov/license/mhic.\n1. Formal mediation of disputes between homeowners and contractors is available through the Commission;\n2. The Commission administers the Guaranty Fund, which may compensate homeowners for certain actual losses caused by acts or omissions of licensed contractors; and\n3. A homeowner may request that a contractor purchase a performance bond for additional protection against losses not covered by the Guaranty Fund.";
+function agreementText(j){
+ var c=co(), ins=isIns(j), price=money(quoteTotal(j));
+ var dep=get(j,"agree.deposit")?money(get(j,"agree.deposit")):"________";
+ var tester=get(j,"quote.tester")||settings.tester||"________", tpays=get(j,"quote.testerPays")||"________";
+ var start=nice(get(j,"agree.startDate"))||"________", end=nice(get(j,"agree.endDate"))||"________";
+ var t=[];
+ t.push((ins?"WORK AUTHORIZATION AND AGREEMENT (INSURANCE JOB)":"MOLD REMEDIATION CONTRACT (SELF-PAY)"));
+ t.push(c+" · "+B(settings.address)+" · "+B(settings.phone)+" · MHIC License #"+B(settings.mhic));
+ t.push("Job "+B(j.num)+" · Customer: "+B(get(j,"customer.name"))+" · Property: "+B(get(j,"customer.address")));
+ if(ins)t.push("Insurance: "+B(get(j,"ins.company"))+" · Claim #"+B(get(j,"ins.claim"))+" · Policy #"+B(get(j,"ins.policy"))+" · Date of loss: "+B(nice(get(j,"ins.lossDate"))));
+ t.push("");
+ t.push("1. THE WORK\n"+c+" (\"we\") will do the mold remediation work in the attached written quote for job "+B(j.num)+", which is part of this agreement: containment, negative air pressure, removal of the affected materials listed, HEPA vacuuming, cleaning, and bagging and hauling away the waste. Only the work and areas listed in the quote are included.\nNot included: rebuilding (drywall, paint, flooring, trim); fixing the leak or water source; lead or asbestos work; contents cleaning; and hidden areas we could not see, unless added in writing.");
+ t.push("2. DATES\nWork starts about "+start+" and should be substantially complete about "+end+". Weather, access, material supply, testing results"+(ins?" or insurance delays":"")+" can move these dates, and we will tell you if they change.");
+ if(ins){
+  t.push("3. PRICE AND WHO PAYS\nThe price is "+price+", as shown in the attached quote.\n- You are responsible for paying us, whether or not your insurance company pays. Insurance is how you may pay us; it does not change who owes us.\n- You pay your deductible, any amount the insurer holds back (such as depreciation), and any work your insurer doesn't cover that you asked us to do.\n- Deposit: "+dep+" at signing (never more than one-third of the price). No payment is due before you sign.\n- Balance: due within 10 days of you receiving the insurance payment for this work, or 30 days after we finish, whichever comes first.\n- We do not pay, waive, rebate or discount your deductible in any way. Maryland law forbids it.");
+  t.push("4. YOUR INSURANCE CLAIM\nYour claim stays yours. We will give you, and your insurance company if you ask us to, our estimate, photos, moisture readings, reports and invoices for this work, and answer the insurer's questions about the work we did. We do not negotiate your claim, interpret your policy, or argue coverage for you. Only you, your attorney or a licensed public adjuster can do that. If we find more damage your insurance may cover, we stop that part of the work, show you photos, and send you and your insurer a written supplement. We do not do the extra work until you sign a Change Order. If you tell us to go ahead before the insurer approves it, you are responsible for paying for it if the insurer says no. You agree to sign the Direction to Pay so the insurer includes us on payments for our work.");
+  t.push("5. YOUR MORTGAGE COMPANY\nIf a mortgage company ("+B(get(j,"ins.mortgage"))+", loan #"+B(get(j,"ins.loan"))+") is named on insurance checks, you authorize us to talk with them about this job, send invoices, completion certificates and photos, ask for inspections, and ask for checks to be released for our work. This permission ends when we're paid in full, or sooner if you cancel it in writing.");
+ } else {
+  t.push("3. PRICE AND PAYMENTS\nContract price: "+price+". Deposit: "+dep+" at signing, after any cancellation period (never more than one-third of the price). Balance: "+(get(j,"agree.rest")||"due when the work is finished")+". No payment is due before you sign. This contract does not create a mortgage or lien on your property and has no financing or monthly payments. The price changes only through a signed Change Order.");
+  t.push("4. CHANGES\nIf we find more mold or damage once walls or floors are open, we stop that part of the work, show you photos, and give you a written Change Order with the new price and dates. Nothing extra is done or charged until you sign it.");
+ }
+ var n=ins?6:5;
+ t.push((n++)+". WHAT YOU AGREE TO DO\n- Have the water problem that caused the mold fixed before we start, or tell us who is fixing it and when. ("+(get(j,"agree.sourceBy")||"________")+") If it isn't fixed, mold can come back, and we are not responsible for that.\n- Give us access during normal working hours, and keep electricity and water on.\n- Keep everyone, including pets, out of the sealed work area. Don't open or unzip the plastic.\n- Move or protect valuable, fragile or sentimental items before we start, unless we agree in writing to handle them.");
+ t.push((n++)+". HIDDEN CONDITIONS AND HAZARDS\nWe can't see inside walls, floors or ceilings until we open them. If we find more mold, rot, or materials that may contain asbestos or lead, we stop that part of the work and tell you. Testing or other professionals may be needed, and extra work needs a signed Change Order. If the home was built before 1978, we follow EPA lead-safe rules and give you the Renovate Right pamphlet before we start.");
+ t.push((n++)+". INDEPENDENT TESTING\nWe recommend an independent tester (not our company) check the work area after we finish. Tester: "+tester+". Paid by: "+tpays+". The plastic stays up until the testing plan says it can come down.");
+ t.push((n++)+". OUR PROMISES AND THEIR LIMITS\n- We will do the work carefully, following accepted mold remediation practices, with trained crew.\n- If you tell us in writing about a problem with our workmanship within 90 days of completion, we will come back and fix it at no charge.\n- We do not promise that all mold is gone from the whole property, that mold won't come back, that the home is safe for anyone's health"+(ins?", or that insurance will pay":"")+".\n- We are not responsible for mold that comes back because of new water, a leak that wasn't fixed, or high humidity after we finish.\n- Opening walls and floors can cause minor damage to nearby finishes. We take care to limit it, but we aren't responsible for it except where we were careless.");
+ t.push((n++)+". LATE PAYMENT\nIf payment is late, we may stop work until the account is current. Unpaid balances may be charged interest at the rate Maryland law allows, plus reasonable collection costs and attorney's fees where the law allows. When you pay, we give you a written receipt and, if you ask, a lien waiver for the amount paid.");
+ t.push((n++)+". IF SOMETHING GOES WRONG\nTell us in writing first. We have 14 days to fix it, or to start fixing it and finish within 30 days. You may also use the Home Improvement Commission's free mediation (see the notice below).");
+ t.push((n++)+". THE WHOLE AGREEMENT\nThis agreement, the attached quote"+(ins?", the Direction to Pay":"")+", any signed Change Orders and, if signed at your home, the Notice of Cancellation, are the whole agreement. Changes must be in writing and signed by both of us. Our employees can't change it on their own. If one part can't be enforced, the rest still applies. Maryland law governs it.");
+ t.push("PHOTOS\nJob photos: "+(get(j,"agree.photoOk")||"________")+". Advertising photos: "+(get(j,"agree.marketingOk")||"No")+".");
+ t.push(MHIC_NOTICE);
+ t.push("YOUR RIGHT TO CANCEL\nIf you signed this agreement at your home, you may cancel it within 5 business days of signing (7 business days if you are 65 or older) using the Notice of Cancellation. We will not start work or take payment until that time has passed.");
+ t.push("By signing, you confirm you own the property or are authorized by the owner to sign, and that you received a signed copy of this agreement and the attached documents.");
+ return t.join("\n\n");
+}
+function dtpText(j){
+ var c=co();
+ return "DIRECTION TO PAY\n"+c+" · "+B(settings.address)+" · MHIC License #"+B(settings.mhic)+"\nJob "+B(j.num)+" · Insured: "+B(get(j,"customer.name"))+" · Property: "+B(get(j,"customer.address"))+"\nInsurance: "+B(get(j,"ins.company"))+" · Claim #"+B(get(j,"ins.claim"))+" · Policy #"+B(get(j,"ins.policy"))+" · Date of loss: "+B(nice(get(j,"ins.lossDate")))+"\nMortgage company: "+B(get(j,"ins.mortgage"))+" · Loan #"+B(get(j,"ins.loan"))+"\n\nTo the insurance company named above:\nI/we direct you to include "+c+" as a payee on any payment you issue under the claim above for the mold remediation work "+c+" performs at the property, or to pay "+c+" directly, up to the amount of its invoices for that work.\n\n1. This is a payment instruction only. It is not an assignment of my claim or my policy. I keep all of my rights under my policy and remain in control of my claim.\n2. "+c+" does not represent me in my claim and will not negotiate it. I may speak with you, my attorney or a licensed public adjuster about my claim at any time.\n3. You may share with "+c+" the parts of the claim file, estimates and payment information that relate to its work, so it can confirm what has been paid.\n4. If a payment for "+c+"'s work is sent to me instead, I will endorse it or pay "+c+" the amount owed within 5 business days of receiving it.\n5. If my mortgage company is on the check, I authorize "+c+" to ask the mortgage company to endorse and release the funds for its work.\n6. This direction stays in effect until "+c+" has been paid in full for its work on this claim, unless "+c+" releases it in writing. A copy or electronic copy has the same effect as the original.\n7. This direction does not change my own obligation, under my agreement with "+c+", to pay for the work.";
+}
+function cancelText(j){
+ var end=nice(cancelEnds(j))||"________";
+ return "NOTICE OF CANCELLATION\nJob "+B(j.num)+" · Date of transaction: "+B(nice(get(j,"agree.custDate")))+"\n\nYou may cancel this transaction, without any penalty or obligation, at any time before midnight of the fifth business day after the date above (the seventh business day if you are 65 or older).\n\nIf you cancel, any property you traded in, any payments you made under the contract, and any papers you signed will be returned to you within 10 business days after we receive your cancellation notice, and any security interest arising out of the transaction will be cancelled.\n\nIf you cancel, you must make available to us at your home, in substantially as good condition as when received, any goods delivered to you under this contract; or you may, if you wish, comply with our instructions about the return shipment of the goods at our expense and risk.\n\nTo cancel this transaction, mail or deliver a signed and dated copy of this cancellation notice, or any other written notice, to "+co()+", "+B(settings.address)+(settings.email?", "+settings.email:"")+", not later than midnight of "+end+".\n\nI HEREBY CANCEL THIS TRANSACTION.\n\nDate: ______________    Customer signature: ______________________________";
+}
+
+// ---------- rendering ----------
+var app=document.getElementById("app");
+function render(){
+ var h="";
+ if(view.name==="home")h=renderHome();
+ else if(view.name==="job")h=renderJob();
+ else if(view.name==="settings")h=renderSettings();
+ else if(view.name==="setup")h=renderSetup();
+ else if(view.name==="crew")h=renderCrewList();
+ else if(view.name==="crewEdit")h=renderCrewEdit();
+ app.innerHTML=h;
+ bindSigs();
+}
+function topBar(title,back){
+ return '<div class="top"><div class="in">'+(back?'<button data-act="'+back+'" aria-label="Back">‹ Back</button>':'')+'<h1>'+esc(title)+'</h1>'+(view.name==="home"?'<button data-act="crew">Crew</button><button data-act="settings">Settings</button>':'')+'</div></div>';
+}
+function statusBanners(){
+ var h="";
+ if(!loaded&&!offline)h+=slow?'<div class="banner warn">Can\'t reach the saved jobs yet. Check the internet connection; this clears by itself once it connects.</div>':'<div class="banner warn">Loading jobs…</div>';
+ if(offline)h+='<div class="banner bad">Saving isn\'t working in this browser, so nothing typed here will be kept. Use Chrome, Edge or Safari, and don\'t use a private or incognito window.</div>';
+ if(loaded&&view.name==="home"&&Object.keys(jobs).length&&daysSince(lastBackup())>7)h+='<div class="banner warn">Jobs are saved on this device only. <b>Make a backup</b> once a week so nothing is lost if this device breaks. <button class="btn sm" data-act="backup" style="margin-left:8px">Back up now</button></div>';
+ return h;
+}
+function renderHome(){
+ var list=Object.keys(jobs).map(function(id){return jobs[id];});
+ var q=view.q.toLowerCase();
+ list=list.filter(function(j){
+  var st=stageOf(j).t;
+  var done=(st==="Paid / closed"||st==="Lost / not a fit"||st==="Not a fit");
+  if(view.filter==="active"&&done)return false;
+  if(view.filter==="done"&&!done)return false;
+  if(q){var hay=[j.num,get(j,"customer.name"),get(j,"customer.address"),get(j,"customer.phone")].join(" ").toLowerCase();if(hay.indexOf(q)<0)return false;}
+  return true;
+ }).sort(function(a,b){return (b.updatedAt||"").localeCompare(a.updatedAt||"");});
+ var h=topBar(co()+" · Jobs");
+ h+='<div class="wrap">'+statusBanners();
+ if(!settings.name)h+='<div class="banner warn">Start in <b>Settings</b>: add the company name, phone and inspection fee once. Every form and customer copy uses them.</div>';
+ h+='<button class="big" data-act="newjob" style="margin-top:12px">+ New customer</button>';
+ h+='<div class="tabs">'+[["active","Open jobs"],["done","Finished"],["all","All"]].map(function(t){return '<button class="'+(view.filter===t[0]?'on':'')+'" data-act="filter" data-v="'+t[0]+'">'+t[1]+'</button>';}).join("")+'</div>';
+ h+='<label class="fld"><span>Find a job</span><input data-act-input="search" placeholder="Name, address, phone or job number" value="'+esc(view.q)+'"></label>';
+ h+='<div class="jobs">';
+ if(!list.length)h+='<div class="empty">'+(loaded?'No jobs here yet. Tap <b>New customer</b> when someone calls.':'')+'</div>';
+ list.forEach(function(j){var st=stageOf(j);h+='<button class="job" data-act="open" data-id="'+esc(j.id)+'"><div><div class="n">'+esc(j.num)+'</div><div class="nm">'+esc(get(j,"customer.name")||"New customer")+'</div><div class="nx">'+esc(get(j,"customer.address")||"")+'</div><div class="nx" style="margin-top:4px"><b>Next:</b> '+esc(nextAction(j))+'</div></div><span class="pill '+st.c+'">'+esc(st.t)+'</span></button>';});
+ h+='</div></div>';
+ return h;
+}
+function renderJob(){
+ var j=cur, st=STEPS[view.step];
+ var h=topBar((j.num||"")+" · "+(get(j,"customer.name")||"New customer"),"home");
+ h+='<div class="wrap">'+statusBanners();
+ h+='<div class="steps" role="tablist">'+STEPS.map(function(s,i){return '<button role="tab" class="'+(i===view.step?'on':'')+'" data-act="step" data-v="'+i+'"><span class="dot'+(stepDone(j,s.k)?' done':'')+'"></span>'+(i+1)+'. '+esc(s.t)+'</button>';}).join("")+'</div>';
+ var stg=stageOf(j);
+ h+='<div class="row" style="margin:6px 0 0"><span class="pill '+stg.c+'">'+esc(stg.t)+'</span><span class="hint" style="margin:0">Next: '+esc(nextAction(j))+'</span></div>';
+ h+=STEP_RENDER[st.k](j);
+ h+='</div>';
+ h+='<div class="bar"><div class="in"><button class="btn" data-act="prev"'+(view.step===0?' disabled':'')+'>‹ Back</button><span class="saved" id="saved">'+esc(saveNote)+'</span><button class="btn pri" data-act="next">'+(view.step===STEPS.length-1?'Done ✓':'Next ›')+'</button></div></div>';
+ return h;
+}
+var STEP_RENDER={
+ customer:function(j){
+  var h='<div class="card"><h2>Customer</h2><p class="hint">Who called and where the job is.</p>';
+  h+='<div class="grid2">'+fText("Customer name","customer.name")+fText("Phone","customer.phone",{type:"tel",im:"tel"})+'</div>';
+  h+=fText("Email","customer.email",{type:"email",im:"email"});
+  h+=fText("Property address","customer.address");
+  h+=fSeg("County","customer.county",COUNTIES);
+  h+=fSeg("Property type","customer.propType",["House","Condo / townhouse","Apartment","Commercial"]);
+  h+=fSeg("They are the","customer.role",["Owner","Tenant","Property manager","Other"]);
+  if(get(j,"customer.role")&&get(j,"customer.role")!=="Owner")h+='<div class="grid2">'+fText("Owner's name","customer.ownerName")+fText("Owner's phone","customer.ownerPhone",{type:"tel",im:"tel"})+'</div>';
+  h+=fSeg("How did they find us?","customer.source",["Google","Referral","Insurance","Website","Truck / sign","Other"]);
+  h+=fSeg("Who is paying for the job?","customer.payType",["Insurance","Self-pay"]);
+  if(isIns(j))h+='<div class="card" style="background:var(--bg)"><h3>Insurance claim</h3><div class="grid2">'+fText("Insurance company","ins.company")+fText("Claim number","ins.claim")+fText("Policy number","ins.policy")+fText("Date of loss","ins.lossDate",{type:"date"})+fText("Adjuster name","ins.adjuster")+fText("Adjuster phone","ins.adjPhone",{type:"tel",im:"tel"})+fText("Mortgage company (if any)","ins.mortgage")+fText("Loan number","ins.loan")+'</div><p class="hint" style="margin:0">Deductible: the customer pays it. Never waive or cover it.</p></div>';
+  h+=fArea("What are they seeing, and where?","customer.notes",{ph:"Rooms, about how big, when they first noticed it"});
+  h+='</div>';
+  h+='<div class="card"><h3>Not a job?</h3>'+fTick("Mark this job as lost or not a fit","lost")+'</div>';
+  h+=msgCard("first reply","first",j);
+  return h;
+ },
+ screen:function(j){
+  var r=screenResult(j), yn=[["yes","Yes"],["no","No"],["unsure","Not sure"]];
+  var h='<div class="card"><h2>Screening</h2><p class="hint">Six questions so you only drive out for real jobs.</p>';
+  h+=fSeg("1. Are they the owner, or do they have the owner's OK?","screen.owner",yn);
+  h+=fSeg("2. Is it in Montgomery, Prince George's, Frederick or Howard County?","screen.area",yn);
+  h+=fSeg("3. Did they send 2 or 3 photos?","screen.photos",[["yes","Yes"],["no","Not yet"]]);
+  h+=fSeg("4. Do they want the work done within 30 days?","screen.timing",[["yes","Yes"],["no","Just looking"],["unsure","Not sure"]]);
+  h+=fSeg("5. Is the leak or water problem fixed, or being fixed?","screen.fixed",yn);
+  h+=fSeg("6. OK with the "+(settings.fee?money(settings.fee):"")+" inspection fee (comes off the bill if they hire us)?","screen.fee",yn);
+  h+='</div>';
+  var txt={green:"GREEN: book the site visit.",yellow:"YELLOW: hold. Get the missing answers or photos first. Nothing gets booked yet.",red:"RED: polite no. Send the not-a-fit text and move on.",none:"Answer the questions above."}[r];
+  h+='<div class="result '+r+'">'+esc(txt)+'</div>';
+  if(get(j,"screen.fixed")==="no")h+='<div class="banner warn">The water problem has to be fixed first, or the mold comes back. They can book once a plumber or roofer is lined up.</div>';
+  if(r==="yellow")h+=msgCard("ask for what's missing","nudge",j);
+  if(r==="red")h+=msgCard("polite no","notfit",j);
+  return h;
+ },
+ visit:function(j){
+  var h='<div class="card"><h2>Site visit</h2><p class="hint">Photos and moisture readings go in CaseLens Pro under job '+esc(j.num)+'. Write the rest here.</p>';
+  h+='<div class="grid2">'+fText("Visit date","visit.date",{type:"date"})+fText("Visit time","visit.time",{ph:"10:00 AM"})+'</div>';
+  h+=fText("Assessed by","visit.by");
+  h+=fArea("What caused it, and is it fixed?","visit.source");
+  h+=fArea("What we saw: rooms, materials, about how many square feet","visit.seen");
+  h+=fArea("Exactly what comes out (drywall to what height, insulation, carpet…)","visit.remove");
+  h+=fArea("What stays and only gets cleaned","visit.keep");
+  h+=fSeg("Customer's belongings","visit.belongings",["Customer moves them","We cover them","Pack-out needed","Nothing in the way"]);
+  h+=fSeg("Built before 1980? (possible lead or asbestos)","visit.old",[["no","No"],["yes","Yes, test first"],["unsure","Not sure"]]);
+  h+='</div>';
+  if(get(j,"visit.old")==="yes")h+='<div class="banner warn">Lead or asbestos work is not part of our service. Get the suspect materials tested before quoting removal.</div>';
+  if(get(j,"visit.date"))h+=msgCard("visit booked","booked",j);
+  return h;
+ },
+ quote:function(j){
+  if(!get(j,"quote.lines")){set(j,"quote.lines",LINE_DEFAULTS.map(function(n){return {name:n,qty:"",price:""};}));}
+  var h='<div class="card"><h2>Quote</h2><p class="hint">Type the price for each part of the job. The total adds itself up.</p><table class="lines"><tbody>';
+  (j.quote.lines||[]).forEach(function(l,i){h+='<tr><td style="width:46%"><input aria-label="Work" data-f="quote.lines.'+i+'.name" value="'+esc(l.name)+'"></td><td style="width:24%"><input aria-label="Area or amount" data-f="quote.lines.'+i+'.qty" placeholder="Area / amount" value="'+esc(l.qty)+'"></td><td style="width:24%"><input aria-label="Price" data-f="quote.lines.'+i+'.price" inputmode="decimal" placeholder="$" value="'+esc(l.price)+'"></td><td><button class="btn sm" data-act="delline" data-v="'+i+'" aria-label="Remove line">✕</button></td></tr>';});
+  h+='</tbody></table><div class="row" style="justify-content:space-between;margin-top:10px"><button class="btn sm" data-act="addline">+ Add a line</button><div class="total">Total <span data-calc="qtotal">'+money(quoteTotal(j))+'</span></div></div></div>';
+  h+='<div class="card"><div class="grid2">'+fText("Days the work should take","quote.days",{im:"numeric"})+fText("Proposed start date","quote.start",{type:"date"})+fText("Quote good until","quote.validUntil",{type:"date"})+fText("Independent tester","quote.tester",{ph:settings.tester||""})+'</div>';
+  h+=fSeg("Who pays for the independent test?","quote.testerPays",["Customer","Included in our price","Insurance"]);
+  h+=fArea("What the customer does before we start","quote.prep",{ph:"Clear the area, put pets away, parking"});
+  h+='<p class="hint"><b>Always included in the customer copy:</b> not included are rebuilding (drywall, paint, flooring), fixing the leak unless listed, lead or asbestos work, and hidden areas we could not see. If we find more, we stop and write a change before doing more work.</p></div>';
+  h+='<div class="card"><h3>Owner approval</h3>'+fTick("I checked the scope and price","quote.approved")+fText("Approved by","quote.approvedBy")+'</div>';
+  h+='<div class="card"><h3>Send it</h3><div class="row"><button class="btn pri" data-act="pdf" data-v="quote"'+(get(j,"quote.approved")?'':' disabled')+'>Download customer quote (PDF)</button>'+fText("Date sent","quote.sentDate",{type:"date"}).replace('class="fld"','class="fld" style="flex:1;min-width:220px;margin:0"')+'</div>'+(get(j,"quote.approved")?'':'<p class="hint">Tick "I checked the scope and price" first.</p>')+'</div>';
+  if(get(j,"quote.sentDate"))h+=msgCard("quote sent","quote",j)+msgCard("quote follow-up","quoteFollow",j);
+  return h;
+ },
+ agree:function(j){
+  var ins=isIns(j), h='';
+  if(!get(j,"customer.payType"))return '<div class="card"><h2>Customer agreement</h2><p>First pick who is paying: insurance or self-pay.</p>'+fSeg("Who is paying for the job?","customer.payType",["Insurance","Self-pay"])+'</div>';
+  h+='<div class="card"><h2>'+(ins?'Work Authorization (insurance job)':'Remediation Contract (self-pay)')+'</h2><p class="hint">Job '+esc(j.num)+' · Price <b data-calc="jtotal">'+money(quoteTotal(j))+'</b> · '+(ins?'Insurance: '+esc(get(j,"ins.company")||"not filled in yet"):'Customer pays directly')+'</p>';
+  h+=fSeg("Who is paying for the job?","customer.payType",["Insurance","Self-pay"]);
+  var maxDep=Math.floor(quoteTotal(j)/3);
+  h+='<div class="grid2">'+fText("Deposit at signing ($), max "+money(maxDep),"agree.deposit",{im:"decimal",ph:settings.depositPct?String(Math.min(maxDep,Math.round(quoteTotal(j)*num(settings.depositPct)/100))):""})+(ins?'':fText("Balance due","agree.rest",{ph:"When the work is finished"}))+fText("Start date","agree.startDate",{type:"date"})+fText("Expected finish","agree.endDate",{type:"date"})+'</div>';
+  if(num(get(j,"agree.deposit"))>maxDep&&maxDep>0)h+='<div class="banner bad">The deposit can\'t be more than one-third of the price ('+money(maxDep)+').</div>';
+  h+=fSeg("Who fixes the water problem?","agree.sourceBy",["Customer, before we start","Already fixed","Someone else, during our work"]);
+  h+=fSeg("Job photos allowed?","agree.photoOk",["Yes","Yes, no faces or house number","No"]);
+  h+=fSeg("Photos for advertising?","agree.marketingOk",["No","Yes, with written OK"]);
+  h+=fSeg("Signing at the customer's home?","agree.atHome",["Yes","No"]);
+  if(get(j,"agree.atHome")==="Yes")h+=fSeg("Is the customer 65 or older?","agree.senior",["No","Yes"]);
+  h+='</div>';
+  h+='<div class="card"><h3>Agreement wording</h3><p class="hint">Read it over with the customer. Your company details and this job\'s details are filled in.</p><div class="contract">'+esc(agreementText(j))+'</div></div>';
+  h+='<div class="card"><h3>Signatures</h3>'+fText("Customer name","agree.custName",{ph:get(j,"customer.name")||""})+fSig("Customer signature","agree.custSig",false)+fText("Company representative","agree.coName",{ph:settings.owner||""})+fSig("Company signature","agree.coSig",false);
+  h+='<div class="row"><button class="btn pri" data-act="pdf" data-v="agree"'+(get(j,"agree.custSig")?'':' disabled')+'>Download signed agreement (PDF)</button></div></div>';
+  if(ins){
+   h+='<div class="card"><h3>Direction to Pay</h3><p class="hint">Tells the insurer to put the company on the check for our work. It does not hand over the claim. Send it to the insurer with the first invoice.</p><div class="contract">'+esc(dtpText(j))+'</div>'+fSig("Insured's signature","agree.dtpSig",false)+'<div class="row"><button class="btn pri" data-act="pdf" data-v="dtp"'+(get(j,"agree.dtpSig")?'':' disabled')+'>Download Direction to Pay (PDF)</button></div></div>';
+  }
+  if(get(j,"agree.atHome")==="Yes"){
+   var ce=cancelEnds(j);
+   h+='<div class="card"><h3>Notice of Cancellation</h3><p class="hint">Signed at the home, so the customer gets '+(get(j,"agree.senior")==="Yes"?'7':'5')+' business days to cancel. Give them two copies.</p>';
+   if(ce)h+='<div class="banner '+(inCancel(j)?'warn':'ok')+'">'+(inCancel(j)?'Last day to cancel: <b>'+esc(nice(ce))+'</b>. Don\'t start work or take any money until after that day.':'Cancellation period ended '+esc(nice(ce))+'. OK to start.')+'</div>';
+   else h+='<p class="hint">The last day to cancel shows here once the customer signs.</p>';
+   h+='<button class="btn pri" data-act="pdf" data-v="cancel">Download Notice of Cancellation (PDF)</button></div>';
+  }
+  if(get(j,"agree.custSig"))h+=msgCard("agreement signed","signed",j);
+  return h;
+ },
+ changes:function(j){
+  var list=j.changes||[];
+  if(view.sub!=null&&list[view.sub]){return renderChange(j,view.sub);}
+  var h='<div class="card"><h2>Changes</h2><p class="hint">Found more than expected? Stop the extra work, take photos in CaseLens Pro, and write the change here. Nothing extra gets done until the customer signs.</p>';
+  if(!list.length)h+='<div class="empty">No changes on this job.</div>';
+  list.forEach(function(c,i){h+='<button class="list-item" data-act="openchange" data-v="'+i+'"><div><b>Change '+(i+1)+'</b> · '+esc(nice(c.date))+'<div class="hint" style="margin:2px 0 0">'+esc((c.reason||"").slice(0,80))+'</div></div><span class="pill '+(c.custSig?'p-done':'p-quote')+'">'+(c.custSig?'Signed ':'Needs signature ')+esc(money(c.amount))+'</span></button>';});
+  h+='<button class="big" data-act="addchange" style="margin-top:12px">+ New change</button></div>';
+  return h;
+ },
+ logs:function(j){
+  var list=j.logs||[];
+  if(view.sub!=null&&list[view.sub]){return renderLog(j,view.sub);}
+  var h='<div class="card"><h2>Work days</h2><p class="hint">One page per workday, filled in by the crew lead. Readings and photos stay in CaseLens Pro.</p>';
+  if(!list.length)h+='<div class="empty">No work days yet.</div>';
+  list.slice().map(function(l,i){return [l,i];}).reverse().forEach(function(p){var l=p[0],i=p[1];h+='<button class="list-item" data-act="openlog" data-v="'+i+'"><div><b>'+esc(nice(l.date))+'</b> · '+esc(l.lead||"")+'<div class="hint" style="margin:2px 0 0">'+esc((l.work||"").slice(0,80))+'</div></div><span class="pill '+(l.signoff?'p-done':'p-new')+'">'+(l.signoff?'Signed off':'Open')+'</span></button>';});
+  h+='<button class="big" data-act="addlog" style="margin-top:12px">+ Start today\'s log</button></div>';
+  h+='<div class="card"><h3>Something went wrong?</h3><p class="hint">Someone hurt, something damaged, or work had to stop: fill in an incident record the same day.</p>';
+  (j.incidents||[]).forEach(function(x,i){h+='<button class="list-item" data-act="openinc" data-v="'+i+'"><div><b>Incident</b> · '+esc(x.when||"")+'<div class="hint" style="margin:2px 0 0">'+esc((x.what||"").slice(0,80))+'</div></div></button>';});
+  h+='<button class="btn" data-act="addinc">+ Incident record</button></div>';
+  if(view.inc!=null&&(j.incidents||[])[view.inc])h=renderIncident(j,view.inc);
+  return h;
+ },
+ finish:function(j){
+  var h='<div class="card"><h2>Finish</h2><p class="hint">Finishing the work is not the same as passing the independent test.</p>';
+  FINISH_CHECKS.forEach(function(c){h+=fTick(c[1],"finish.checks."+c[0]);});
+  h+=fArea("Anything not finished: why, who will do it, and when","finish.notDone");
+  h+=fSeg("Water problem fixed?","finish.source",["Yes","No","Not sure"]);
+  h+='<div class="grid2">'+fText("Independent tester","finish.tester",{ph:get(j,"quote.tester")||settings.tester||""})+fText("Test report date","finish.reportDate",{type:"date"})+'</div>';
+  h+=fSeg("Test result","finish.result",["Waiting","Passed","Needs more work"]);
+  h+=fText("Date work finished","finish.date",{type:"date"});
+  h+='</div><div class="card"><h3>Sign-off</h3>'+fSig("Company representative","finish.coSig",false)+fSig("Customer (received the summary only)","finish.custSig",false);
+  h+='<p class="hint">The customer\'s signature only shows they got the summary. It does not waive anything.</p><div class="row"><button class="btn pri" data-act="pdf" data-v="finish"'+(get(j,"finish.date")?'':' disabled')+'>Download Certificate of Completion (PDF)</button></div></div>';
+  if(get(j,"finish.date"))h+=msgCard("work done","done",j);
+  return h;
+ },
+ pay:function(j){
+  var h='<div class="card"><h2>Payment</h2>';
+  h+='<div class="grid2"><div><div class="hint" style="margin:0">Quote</div><div class="total">'+money(quoteTotal(j))+'</div></div><div><div class="hint" style="margin:0">Signed changes</div><div class="total">'+money(changesTotal(j))+'</div></div><div><div class="hint" style="margin:0">Paid so far</div><div class="total" data-calc="paid">'+money(paidTotal(j))+'</div></div><div><div class="hint" style="margin:0">Still owed</div><div class="total" data-calc="bal" style="color:'+(balance(j)>0?'var(--bad)':'var(--good)')+'">'+money(balance(j))+'</div></div></div></div>';
+  h+='<div class="card"><h3>Payments received</h3>';
+  (get(j,"pay.payments")||[]).forEach(function(p,i){h+='<div class="grid2" style="border-top:1px solid var(--line);margin-top:6px">'+fText("Date","pay.payments."+i+".date",{type:"date"})+fText("Amount ($)","pay.payments."+i+".amount",{im:"decimal"})+'</div>'+fSeg("Paid by","pay.payments."+i+".method",["Check","Card","Cash","Insurance","Other"]);});
+  h+='<button class="btn" data-act="addpay">+ Add a payment</button></div>';
+  h+='<div class="card"><h3>Invoice</h3>'+fText("Invoice date","pay.invoiceDate",{type:"date"})+'<button class="btn pri" data-act="pdf" data-v="invoice"'+(jobTotal(j)>0?'':' disabled')+'>Download invoice (PDF)</button></div>';
+  if(get(j,"pay.invoiceDate")&&balance(j)>0)h+=msgCard("invoice","invoice",j);
+  if(jobTotal(j)>0&&balance(j)<=0)h+=msgCard("paid, ask for a review","paid",j);
+  return h;
+ }
+};
+function subBack(label){return '<button class="btn sm" data-act="subback" style="margin-top:12px">‹ '+esc(label)+'</button>';}
+function renderChange(j,i){
+ var p="changes."+i+".", ok=true;
+ var h=subBack("All changes")+'<div class="card"><h2>Change '+(i+1)+'</h2>';
+ h+=fText("Date",p+"date",{type:"date"});
+ h+=fArea("What we found and why the change is needed",p+"reason");
+ h+=fArea("Work added, removed or changed",p+"work");
+ h+='<div class="grid2">'+fText("Amount added (+) or taken off (-)",p+"amount",{im:"decimal",ph:"500 or -200"})+fText("New finish date",p+"finishDate",{type:"date"})+'</div>';
+ h+='<p class="hint">Job total before: '+money(jobTotal(j)-(j.changes[i].custSig?num(j.changes[i].amount):0))+' · After this change: <b>'+money(jobTotal(j)+(j.changes[i].custSig?0:num(j.changes[i].amount)))+'</b></p>';
+ h+=fSeg("Does it change containment, access or testing?",p+"affects",["No","Yes"]);
+ h+='</div><div class="card"><h3>Signatures before the extra work</h3>'+fSig("Customer",p+"custSig",!ok)+fSig("Company representative",p+"coSig",!ok)+'<button class="btn pri" data-act="pdf" data-v="change" data-i="'+i+'"'+(j.changes[i].custSig?'':' disabled')+'>Download change (PDF)</button></div>';
+ h+=msgCard("change needed","change",j);
+ return h;
+}
+function renderLog(j,i){
+ var p="logs."+i+".";
+ var h=subBack("All work days")+'<div class="card"><h2>Work day</h2><div class="grid2">'+fText("Date",p+"date",{type:"date"})+fText("Crew lead",p+"lead")+'</div>'+fText("Crew on site, arrival and leave times",p+"crew")+'</div>';
+ h+='<div class="card"><h3>Start of day</h3>';START_CHECKS.forEach(function(c){h+=fTick(c[1],p+"start."+c[0]);});h+=fArea("Problems found at start and what we did",p+"startNotes")+'</div>';
+ h+='<div class="card"><h3>During the day</h3>'+fArea("Work done today: what was removed, what was cleaned",p+"work")+fText("Equipment running (ID numbers and where)",p+"equip")+fText("Products used",p+"products")+fText("Waste: how many bags, where it went",p+"waste")+fArea("Anything unexpected, any damage, complaint or work stop",p+"unexpected")+fText("What we told the customer, when, and to whom",p+"update")+'</div>';
+ h+='<div class="card"><h3>End of day</h3>';END_CHECKS.forEach(function(c){h+=fTick(c[1],p+"end."+c[0]);});h+=fArea("Work left / plan for tomorrow",p+"tomorrow")+fTick("Crew lead signs off on this day",p+"signoff")+'</div>';
+ return h;
+}
+function renderIncident(j,i){
+ var p="incidents."+i+".";
+ var h=subBack("Back to work days")+'<div class="card"><h2>Incident record</h2><p class="hint">Write only what happened. Do not guess at causes or admit fault.</p>';
+ h+=fText("Date, time and where",p+"when")+fArea("What happened and who was involved",p+"what")+fArea("What we did right away (first aid, 911, made it safe)",p+"steps")+fSeg("Was work stopped?",p+"stopped",["Yes","No"])+fText("Who was told, and when",p+"notified")+fText("Photos and witnesses",p+"photos")+fSeg("Does the insurance company need to be told?",p+"insurer",["Yes","No","Not sure"])+fArea("What must happen before work restarts, and who approves",p+"restart")+'</div>';
+ return h;
+}
+
+function renderSetup(){
+ var s=settings;cur=null;
+ function st(label,k,o){o=o||{};return '<label class="fld"><span>'+esc(label)+'</span><input data-s="'+k+'" type="'+(o.type||"text")+'"'+(o.im?' inputmode="'+o.im+'"':'')+(o.ph?' placeholder="'+esc(o.ph)+'"':'')+' value="'+esc(s[k]||"")+'"></label>';}
+ var h='<div class="top"><div class="in"><h1>Welcome to the Mold Job App</h1></div></div><div class="wrap">'+statusBanners();
+ h+='<div class="card"><h2>Set up your company</h2><p class="hint">Fill this in once. Your quotes, agreements and invoices all use it. You can change it any time in Settings.</p>';
+ h+='<div class="grid2">'+st("Company name","name",{ph:"Example: Clear Path Mold Remediation"})+st("Owner's name","owner")+st("Main phone","phone",{type:"tel",im:"tel"})+st("Business email","email",{type:"email",im:"email"})+'</div>';
+ h+=st("Business address","address");
+ h+='<div class="grid2">'+st("MHIC license number","mhic")+st("Inspection fee ($)","fee",{im:"decimal",ph:"Example: 250"})+st("Deposit at signing (% of quote, 33 max)","depositPct",{im:"decimal",ph:"Example: 30"})+st("Usual independent tester","tester")+'</div>';
+ h+=st("Google review link (optional)","review");
+ h+='<button class="big" data-act="setupdone" style="margin-top:16px">Start using the app</button></div>';
+ h+='<div class="card"><h3>Good to know</h3><p class="hint" style="margin:0">Your jobs are saved on this device. Make a backup once a week from Settings, and use the same backup to move your jobs to a new device.</p></div></div>';
+ return h;
+}
+function renderSettings(){
+ var s=settings;cur=null;
+ function st(label,k,o){o=o||{};return '<label class="fld"><span>'+esc(label)+'</span><input data-s="'+k+'" type="'+(o.type||"text")+'"'+(o.im?' inputmode="'+o.im+'"':'')+' value="'+esc(s[k]||"")+'"></label>';}
+ var h=topBar("Settings","home")+'<div class="wrap">'+statusBanners();
+ h+='<div class="card"><h2>Company info</h2><p class="hint">Fill in once. Every customer copy uses these.</p><div class="grid2">'+st("Company name","name")+st("Owner","owner")+st("Main phone","phone",{type:"tel"})+st("Business email","email",{type:"email"})+'</div>'+st("Business address","address")+'<div class="grid2">'+st("MHIC license number","mhic")+st("Inspection fee ($)","fee",{im:"decimal"})+st("Deposit at signing (% of quote)","depositPct",{im:"decimal"})+st("Usual independent tester","tester")+'</div>'+st("Google review link","review")+'</div>';
+ h+='<div class="card"><h2>Customer agreements</h2><p class="hint">The app fills in the agreement for each job by itself: the Work Authorization and Direction to Pay for insurance jobs, the Remediation Contract for self-pay jobs, and the Notice of Cancellation when it is signed at the home. This is the November 2026 wording, used until a Maryland attorney reviews it.</p></div>';
+ h+='<div class="card"><h2>Backups</h2><p class="hint">Your jobs are saved on this device only. Back up once a week. To move everything to another laptop or tablet, back up here, then restore that file on the other device.</p><p class="hint">Last backup: <b>'+esc(lastBackup()?nice(lastBackup()):"never")+'</b></p><div class="row"><button class="btn pri" data-act="backup">Back up now</button><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">Restore a backup<input type="file" accept=".json,application/json" data-act-file="restore" style="display:none"></label></div><p class="hint" style="margin-top:12px">'+(db?'Changes save by themselves.':'Saving is off in this browser.')+' <span id="saved">'+esc(saveNote)+'</span></p></div></div>';
+ return h;
+}
+function renderCrewList(){
+ var list=Object.keys(crew).map(function(k){return crew[k];}).sort(function(a,b){return (a.name||"").localeCompare(b.name||"");});
+ var h=topBar("Crew training records","home")+'<div class="wrap">'+statusBanners()+'<p class="hint">Fill one in for each crew member before their first job. Keep respirator medical paperwork in a separate private file, not here.</p>';
+ list.forEach(function(c){var n=TRAIN.filter(function(t){return get(c,"topics."+t[0]+".ok");}).length;h+='<button class="list-item" data-act="opencrew" data-id="'+esc(c.id)+'"><div><b>'+esc(c.name||"New crew member")+'</b><div class="hint" style="margin:2px 0 0">'+esc(c.role||"")+'</div></div><span class="pill '+(n===TRAIN.length?'p-done':'p-quote')+'">'+n+' of '+TRAIN.length+' trained</span></button>';});
+ if(!list.length)h+='<div class="empty">No crew records yet.</div>';
+ h+='<button class="big" data-act="addcrew" style="margin-top:12px">+ Add crew member</button></div>';
+ return h;
+}
+function renderCrewEdit(){
+ var c=curCrew;
+ function ct(label,p,o){o=o||{};return '<label class="fld"><span>'+esc(label)+'</span><input data-c="'+p+'" type="'+(o.type||"text")+'" value="'+esc(get(c,p)||"")+'"></label>';}
+ function ctick(label,p){var on=!!get(c,p);return '<button type="button" class="tick'+(on?' on':'')+'" data-act="ctick" data-f="'+p+'"><span class="box">'+(on?'✓':'')+'</span><span>'+esc(label)+'</span></button>';}
+ var h=topBar(c.name||"Crew member","crew")+'<div class="wrap">'+statusBanners()+'<div class="card"><div class="grid2">'+ct("Name","name")+ct("Supervisor","supervisor")+'</div>'+ct("Job role and tasks allowed","role")+ct("Certifications checked, with expiration dates","certs")+ctick("Respirator medical clearance and fit test done","fit")+ct("Fit test date","fitDate",{type:"date"})+ct("Tasks that need a supervisor present","supervised")+'</div>';
+ h+='<div class="card"><h3>Training</h3>';TRAIN.forEach(function(t){h+='<div style="border-top:1px solid var(--line);padding-top:6px;margin-top:6px"><b>'+esc(t[1])+'</b><div class="grid2">'+ct("Date","topics."+t[0]+".date",{type:"date"})+ct("Trainer","topics."+t[0]+".trainer")+'</div>'+ctick("Showed they can do it","topics."+t[0]+".ok")+'</div>';});
+ h+='</div><div class="card">'+ctick("Worker signed this record","workerOk")+ctick("Supervisor approved","supOk")+'<p class="hint">'+esc(saveNote)+'</p></div></div>';
+ return h;
+}
+
+// ---------- signature pads ----------
+function bindSigs(){
+ app.querySelectorAll("canvas.sig").forEach(function(cv){
+  var ctx=cv.getContext("2d"), drawing=false, last=null;
+  ctx.lineWidth=3.2;ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle="#0F2A3A";
+  cv._blank=true;
+  function pt(e){var r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height};}
+  cv.addEventListener("pointerdown",function(e){drawing=true;last=pt(e);cv.setPointerCapture(e.pointerId);e.preventDefault();});
+  cv.addEventListener("pointermove",function(e){if(!drawing)return;var p=pt(e);ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;cv._blank=false;});
+  function up(){drawing=false;}
+  cv.addEventListener("pointerup",up);cv.addEventListener("pointercancel",up);
+ });
+}
+
+// ---------- events ----------
+document.addEventListener("click",function(e){
+ var b=e.target.closest("[data-act]");if(!b)return;
+ var a=b.getAttribute("data-act"), f=b.getAttribute("data-f"), v=b.getAttribute("data-v");
+ if(a==="home"){flushSave();view={name:"home",filter:view.filter||"active",q:view.q||""};cur=null;render();window.scrollTo(0,0);}
+ else if(a==="settings"){view={name:"settings",filter:view.filter,q:view.q};render();}
+ else if(a==="crew"){flushCrew();view={name:"crew",filter:view.filter,q:view.q};render();}
+ else if(a==="filter"){view.filter=v;render();}
+ else if(a==="newjob"){newJob();}
+ else if(a==="open"){openJob(b.getAttribute("data-id"));}
+ else if(a==="step"){goStep(+v);}
+ else if(a==="prev"){if(view.sub!=null||view.inc!=null){view.sub=null;view.inc=null;render();}else goStep(view.step-1);}
+ else if(a==="next"){if(view.sub!=null||view.inc!=null){view.sub=null;view.inc=null;render();window.scrollTo(0,0);}else if(view.step===STEPS.length-1){flushSave();view={name:"home",filter:"active",q:""};cur=null;render();}else goStep(view.step+1);}
+ else if(a==="pick"){var old=get(cur,f);set(cur,f,old===v?null:v);changed(true);}
+ else if(a==="tick"){set(cur,f,!get(cur,f));changed(true);}
+ else if(a==="addline"){cur.quote.lines.push({name:"",qty:"",price:""});changed(true);}
+ else if(a==="delline"){cur.quote.lines.splice(+v,1);changed(true);}
+ else if(a==="addchange"){cur.changes=cur.changes||[];cur.changes.push({date:today(),reason:"",work:"",amount:""});view.sub=cur.changes.length-1;changed(true);window.scrollTo(0,0);}
+ else if(a==="openchange"){view.sub=+v;render();window.scrollTo(0,0);}
+ else if(a==="addlog"){cur.logs=cur.logs||[];var prev=cur.logs[cur.logs.length-1]||{};cur.logs.push({date:today(),lead:prev.lead||"",crew:prev.crew||"",equip:prev.equip||""});view.sub=cur.logs.length-1;changed(true);window.scrollTo(0,0);}
+ else if(a==="openlog"){view.sub=+v;render();window.scrollTo(0,0);}
+ else if(a==="addinc"){cur.incidents=cur.incidents||[];cur.incidents.push({when:new Date().toLocaleString("en-US")});view.inc=cur.incidents.length-1;changed(true);window.scrollTo(0,0);}
+ else if(a==="openinc"){view.inc=+v;render();window.scrollTo(0,0);}
+ else if(a==="subback"){view.sub=null;view.inc=null;render();window.scrollTo(0,0);}
+ else if(a==="addpay"){set(cur,"pay.payments",(get(cur,"pay.payments")||[]).concat([{date:today(),amount:"",method:null}]));changed(true);}
+ else if(a==="sigclear"){var cv=app.querySelector('canvas[data-sig="'+f+'"]');if(cv){cv.getContext("2d").clearRect(0,0,cv.width,cv.height);cv._blank=true;}}
+ else if(a==="sigsave"){var cv2=app.querySelector('canvas[data-sig="'+f+'"]');if(!cv2||cv2._blank){toast("Sign in the box first");return;}set(cur,f,trimSig(cv2));var dp=f.replace(/Sig$/,"Date");set(cur,dp,today());changed(true);toast("Signature saved");}
+ else if(a==="unsign"){askConfirm("Clear this signature?","The signer will need to sign again.",function(){set(cur,f,null);changed(true);});}
+ else if(a==="copy"){copyText(b.getAttribute("data-text"));}
+ else if(a==="backup"){backupNow();}
+ else if(a==="setupdone"){if(!settings.name||!settings.owner){toast("Add the company name and the owner's name first.");return;}clearTimeout(setTimer);saveSettings();view={name:"home",filter:"active",q:""};render();window.scrollTo(0,0);toast("All set. Tap New customer when someone calls.");}
+ else if(a==="pdf"){makePdf(v,b.getAttribute("data-i"));}
+ else if(a==="mic"){toggleMic(f);}
+ else if(a==="stick"){var k=b.getAttribute("data-k");settings[k]=!settings[k];saveSettings();render();}
+ else if(a==="addcrew"){var id="c"+Date.now().toString(36);curCrew={id:id,name:"",topics:{}};crew[id]=curCrew;view={name:"crewEdit",filter:view.filter,q:view.q};saveCrew();render();}
+ else if(a==="opencrew"){curCrew=clone(crew[b.getAttribute("data-id")]);view={name:"crewEdit",filter:view.filter,q:view.q};render();}
+ else if(a==="ctick"){set(curCrew,f,!get(curCrew,f));saveCrew();rerenderKeep();}
+ else if(a==="mclose"){var m=document.querySelector(".modal");if(m)m.remove();}
+});
+document.addEventListener("input",function(e){
+ var el=e.target;
+ if(el.getAttribute("data-act-input")==="search"){view.q=el.value;var pos=el.selectionStart;render();var s=app.querySelector('[data-act-input="search"]');if(s){s.focus();try{s.setSelectionRange(pos,pos);}catch(x){}}return;}
+ var f=el.getAttribute("data-f");
+ if(f&&cur){set(cur,f,el.value);changed(false);updateCalcs();return;}
+ var k=el.getAttribute("data-s");
+ if(k){settings[k]=el.value;saveSettingsSoon();return;}
+ var c=el.getAttribute("data-c");
+ if(c&&curCrew){set(curCrew,c,el.value);saveCrewSoon();}
+});
+function updateCalcs(){
+ if(!cur)return;
+ var m={qtotal:money(quoteTotal(cur)),jtotal:money(quoteTotal(cur)),paid:money(paidTotal(cur)),bal:money(balance(cur))};
+ app.querySelectorAll("[data-calc]").forEach(function(el){var k=el.getAttribute("data-calc");if(m[k]!=null)el.textContent=m[k];});
+}
+function trimSig(cv){
+ // copy onto white JPEG-like PNG at smaller size to keep documents small
+ var out=document.createElement("canvas");out.width=420;out.height=120;var c=out.getContext("2d");c.fillStyle="#fff";c.fillRect(0,0,420,120);c.drawImage(cv,0,0,420,120);
+ return out.toDataURL("image/png");
+}
+function askConfirm(title,body,yes){
+ var m=document.createElement("div");m.className="modal";m.innerHTML='<div class="box2"><h2 style="font-size:22px">'+esc(title)+'</h2><p>'+esc(body)+'</p><div class="row" style="justify-content:flex-end"><button class="btn" data-act="mclose">Cancel</button><button class="btn pri" id="myes">Yes</button></div></div>';
+ document.body.appendChild(m);m.querySelector("#myes").addEventListener("click",function(){m.remove();yes();});
+}
+
+// ---------- navigation ----------
+function goStep(i){if(i<0||i>=STEPS.length)return;flushSave();view.step=i;view.sub=null;view.inc=null;render();window.scrollTo(0,0);}
+function nextNum(){var y=new Date().getFullYear(),max=0;Object.keys(jobs).forEach(function(k){var n=jobs[k].num||"";var m=n.match(/^(\d{4})-(\d+)$/);if(m&&+m[1]===y)max=Math.max(max,+m[2]);});return y+"-"+String(max+1).padStart(3,"0");}
+function newJob(){
+ var id="j"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+ cur={id:id,num:nextNum(),created:new Date().toISOString(),customer:{},screen:{}};
+ jobs[id]=clone(cur);
+ view={name:"job",step:0,filter:view.filter,q:view.q};
+ changed(true);window.scrollTo(0,0);
+}
+function openJob(id){cur=clone(jobs[id]);view={name:"job",step:stageOf(cur).step,filter:view.filter,q:view.q};render();window.scrollTo(0,0);}
+
+// ---------- saving ----------
+function changed(rerender){
+ if(!cur)return;
+ cur.updatedAt=new Date().toISOString();
+ jobs[cur.id]=clone(cur);
+ saveNote="Saving…";var sv=document.getElementById("saved");if(sv)sv.textContent=saveNote;
+ clearTimeout(saveTimer);saveTimer=setTimeout(doSave,1200);
+ if(rerender){var y=window.scrollY;render();window.scrollTo(0,y);}
+}
+function flushSave(){if(saveTimer){clearTimeout(saveTimer);saveTimer=null;doSave();}}
+function doSave(){
+ saveTimer=null;
+ if(!cur&&!pendingJob)return;
+ var data=clone(cur||pendingJob);
+ if(!db){saveNote=offline?"Not saved":"Waiting…";pendingJob=data;markSaved();return;}
+ if(saving){pendingJob=data;pendingSave=true;return;}
+ saving=true;pendingJob=null;
+ db.collection("jobs").doc(data.id).set(data).then(function(){saving=false;saveNote="Saved ✓";markSaved();if(pendingSave){pendingSave=false;doSaveData();}},function(err){saving=false;handleErr(err);if(pendingSave){pendingSave=false;doSaveData();}});
+}
+var pendingJob=null;
+function doSaveData(){if(!pendingJob)return;var d=pendingJob;pendingJob=null;saving=true;db.collection("jobs").doc(d.id).set(d).then(function(){saving=false;saveNote="Saved ✓";markSaved();if(pendingJob)doSaveData();},function(err){saving=false;handleErr(err);});}
+function markSaved(){var sv=document.getElementById("saved");if(sv)sv.textContent=saveNote;}
+function handleErr(err){
+ var c=err&&err.code;
+ if(c==="invalid_argument"&&!writeBlocked){writeBlocked=true;saveNote="Not saved";render();return;}
+ if(c==="quota_exceeded"){saveNote="Storage full";toast("Storage is full. Ask Ross to make room.");markSaved();return;}
+ if(c==="unavailable"){setTimeout(function(){if(cur)doSave();},1500+Math.random()*1500);saveNote="Retrying…";markSaved();return;}
+ saveNote="Not saved";markSaved();
+}
+var setTimer=null,setSaving=false,setPending=false;
+function saveSettingsSoon(){saveNote="Saving…";markSaved();clearTimeout(setTimer);setTimer=setTimeout(saveSettings,1000);}
+function saveSettings(){if(!db){saveNote="Not saved";markSaved();return;}if(setSaving){setPending=true;return;}setSaving=true;db.doc("settings/company").set(clone(settings)).then(function(){setSaving=false;saveNote="Saved ✓";markSaved();if(setPending){setPending=false;saveSettings();}},function(err){setSaving=false;handleErr(err);});}
+var crewTimer=null,crewSaving=false,crewPending=false;
+function saveCrewSoon(){saveNote="Saving…";clearTimeout(crewTimer);crewTimer=setTimeout(saveCrew,1000);}
+function flushCrew(){if(crewTimer){clearTimeout(crewTimer);crewTimer=null;saveCrew();}}
+function saveCrew(){if(!curCrew)return;crew[curCrew.id]=clone(curCrew);if(!db)return;if(crewSaving){crewPending=true;return;}crewSaving=true;db.collection("crew").doc(curCrew.id).set(clone(curCrew)).then(function(){crewSaving=false;saveNote="Saved ✓";if(crewPending){crewPending=false;saveCrew();}},function(err){crewSaving=false;handleErr(err);});}
+
+// ---------- dictation ----------
+function toggleMic(p){
+ if(!dict)return;
+ if(micPath){var was=micPath;dict.stop().catch(function(){});micPath=null;if(was===p){rerenderKeep();return;}}
+ micPath=p;
+ dict.start().catch(function(err){micPath=null;if(err&&err.code==="not_granted")toast("Microphone not allowed. You can still type.");rerenderKeep();});
+ rerenderKeep();
+}
+function rerenderKeep(){var y=window.scrollY;render();window.scrollTo(0,y);}
+
+// ---------- PDFs ----------
+function makePdf(kind,idx){
+ if(!window.jspdf){toast("PDF maker didn't load. Check the internet connection.");return;}
+ var j=cur, J=window.jspdf.jsPDF, d=new J({unit:"pt",format:"letter"}), y=54, W=612, L=54, R=W-54;
+ function line(t,o){o=o||{};d.setFont("helvetica",o.b?"bold":"normal");d.setFontSize(o.s||11);var parts=d.splitTextToSize(String(t||""),R-L-(o.ind||0));parts.forEach(function(p){if(y>740){d.addPage();y=54;}d.text(p,L+(o.ind||0),y);y+=(o.s||11)*1.4;});}
+ function gap(n){y+=n||8;}
+ function head(title){d.setFont("helvetica","bold");d.setFontSize(18);d.text(co(),L,y);y+=20;d.setFont("helvetica","normal");d.setFontSize(10);d.text([settings.address,settings.phone,settings.email,settings.mhic?"MHIC #"+settings.mhic:""].filter(Boolean).join("  ·  "),L,y);y+=24;d.setDrawColor(11,107,106);d.setLineWidth(1.5);d.line(L,y-10,R,y-10);d.setFont("helvetica","bold");d.setFontSize(15);d.text(title,L,y+6);y+=28;line("Job "+(j.num||"")+"   ·   "+(get(j,"customer.name")||"")+"   ·   "+(get(j,"customer.address")||""));gap(6);}
+ function kv(k,v){if(!v)return;line(k+": "+v);}
+ function sig(label,src,dt){if(y>640){d.addPage();y=54;}line(label,{b:true});if(src){try{d.addImage(src,"PNG",L,y,210,60);}catch(x){}y+=64;}else{d.line(L,y+40,L+260,y+40);y+=50;}if(dt)line("Date: "+nice(dt),{s:10});gap(6);}
+ var fname=(j.num||"job")+"-";
+ if(kind==="quote"){
+  head("Written Quote");
+  kv("Quote date",nice(get(j,"quote.sentDate")||today()));kv("Good until",nice(get(j,"quote.validUntil")));
+  gap();line("What we found",{b:true});line(get(j,"visit.seen")||"");kv("Water source",get(j,"visit.source"));
+  gap();line("What we will remove",{b:true});line(get(j,"visit.remove")||"");line("What stays and is cleaned only",{b:true});line(get(j,"visit.keep")||"");
+  gap();line("Price",{b:true});(get(j,"quote.lines")||[]).forEach(function(l){if(l.name||l.price)line((l.name||"")+(l.qty?" ("+l.qty+")":"")+" ...... "+money(l.price),{ind:10});});line("Total: "+money(quoteTotal(j)),{b:true,s:13});
+  gap();kv("Expected days of work",get(j,"quote.days"));kv("Proposed start",nice(get(j,"quote.start")));kv("Independent tester",get(j,"quote.tester")||settings.tester);kv("Testing paid by",get(j,"quote.testerPays"));kv("Before we start, please",get(j,"quote.prep"));
+  gap();line("Not included",{b:true});line("Rebuilding (new drywall, paint, flooring); fixing the leak or water source unless listed above; lead or asbestos work; hidden areas we could not see. If we open a wall and find more, we stop and write a change for your approval before doing more work.");
+  gap();line("We do not promise that insurance will pay, that all mold is gone from the whole property, or that the property is medically safe. This is a quote only; work starts after a signed agreement.",{s:10});
+  fname+="quote.pdf";
+ } else if(kind==="agree"){
+  head(isIns(j)?"Work Authorization and Agreement":"Mold Remediation Contract");
+  agreementText(j).split("\n").slice(3).forEach(function(t){if(!t){gap(4);return;}var b=/^[0-9]+\. [A-Z]|^[A-Z][A-Z ]+$|^MARYLAND|^YOUR RIGHT|^PHOTOS/.test(t);line(t,{b:b,s:b?11:10});});
+  gap();sig("Customer: "+(get(j,"agree.custName")||get(j,"customer.name")||""),get(j,"agree.custSig"),get(j,"agree.custDate"));sig("Company: "+(get(j,"agree.coName")||settings.owner||""),get(j,"agree.coSig"),get(j,"agree.coDate"));
+  fname+="agreement.pdf";
+ } else if(kind==="dtp"){
+  head("Direction to Pay");
+  dtpText(j).split("\n").slice(2).forEach(function(t){if(!t){gap(4);return;}line(t,{s:10});});
+  gap();sig("Insured: "+(get(j,"agree.custName")||get(j,"customer.name")||""),get(j,"agree.dtpSig"),get(j,"agree.dtpDate"));
+  fname+="direction-to-pay.pdf";
+ } else if(kind==="cancel"){
+  head("Notice of Cancellation");
+  cancelText(j).split("\n").slice(1).forEach(function(t){if(!t){gap(4);return;}line(t,{s:10,b:/^I HEREBY|^You may cancel/.test(t)});});
+  fname+="notice-of-cancellation.pdf";
+ } else if(kind==="change"){
+  var c=j.changes[+idx];head("Change "+(+idx+1));
+  kv("Date",nice(c.date));gap();line("What we found and why",{b:true});line(c.reason);line("Work added, removed or changed",{b:true});line(c.work);gap();kv("Amount",money(c.amount));kv("New job total",money(jobTotal(j)));kv("New finish date",nice(c.finishDate));kv("Changes containment, access or testing",c.affects);
+  gap();sig("Customer",c.custSig,c.custDate);sig("Company",c.coSig,c.coDate);
+  fname+="change-"+(+idx+1)+".pdf";
+ } else if(kind==="finish"){
+  head("Certificate of Completion");
+  if(isIns(j)){kv("Insurance",(get(j,"ins.company")||"")+" · Claim #"+(get(j,"ins.claim")||""));kv("Mortgage company",get(j,"ins.mortgage"));}
+  kv("Work finished",nice(get(j,"finish.date")));gap();FINISH_CHECKS.forEach(function(k){line((get(j,"finish.checks."+k[0])?"[x] ":"[ ] ")+k[1]);});
+  gap();kv("Not finished yet",get(j,"finish.notDone"));kv("Water problem fixed",get(j,"finish.source"));kv("Independent tester",get(j,"finish.tester")||get(j,"quote.tester"));kv("Test report date",nice(get(j,"finish.reportDate")));kv("Test result",get(j,"finish.result"));
+  gap();line("The customer's signature confirms the work listed was done, except anything noted as not finished, and authorizes the insurer and mortgage company to release payment for this work. It does not waive the customer's rights or the 90-day workmanship promise, and does not mean hidden conditions don't exist. Finishing our work is not the same as passing the independent test.",{s:10});
+  gap();sig("Company representative",get(j,"finish.coSig"),get(j,"finish.coDate"));sig("Customer (received)",get(j,"finish.custSig"),get(j,"finish.custDate"));
+  fname+="certificate-of-completion.pdf";
+ } else if(kind==="invoice"){
+  head("Invoice");
+  kv("Invoice date",nice(get(j,"pay.invoiceDate")||today()));gap();
+  (get(j,"quote.lines")||[]).forEach(function(l){if(l.name||l.price)line((l.name||"")+" ...... "+money(l.price),{ind:10});});
+  (j.changes||[]).forEach(function(c,i){if(c.custSig)line("Change "+(i+1)+" ...... "+money(c.amount),{ind:10});});
+  gap();line("Total: "+money(jobTotal(j)),{b:true,s:13});
+  (get(j,"pay.payments")||[]).forEach(function(p){if(num(p.amount))line("Paid "+nice(p.date)+(p.method?" ("+p.method+")":"")+" ...... -"+money(p.amount),{ind:10});});
+  line("Balance due: "+money(balance(j)),{b:true,s:14});gap();if(isIns(j))line("Your deductible and any amount your insurer holds back are part of what you owe. We cannot waive or reduce your deductible.",{s:10});line("Thank you for choosing "+co()+".");
+  fname+="invoice.pdf";
+ }
+ var blob=d.output("blob");
+ if(!dl){toast("Downloads aren't available in this view.");return;}
+ dl.save({filename:fname,data:blob}).then(function(){toast("Saved "+fname);},function(err){if(err&&err.code!=="declined")toast("Couldn't save the file.");});
+}
+
+
+// ---------- on-device storage (standalone version) ----------
+var LocalStore=(function(){
+ var DBN="moldJobApp", ST="docs", idb=null, mem={}, listeners=[];
+ function open(){return new Promise(function(res){try{var r=indexedDB.open(DBN,1);r.onupgradeneeded=function(){r.result.createObjectStore(ST);};r.onsuccess=function(){idb=r.result;res();};r.onerror=function(){res();};r.onblocked=function(){res();};}catch(e){res();}});}
+ function loadAll(){return new Promise(function(res){
+  if(!idb){try{var raw=localStorage.getItem(DBN);mem=raw?JSON.parse(raw):{};}catch(e){mem={};}res();return;}
+  try{var req=idb.transaction(ST,"readonly").objectStore(ST).openCursor();req.onsuccess=function(){var c=req.result;if(c){mem[c.key]=c.value;c.continue();}else res();};req.onerror=function(){res();};}catch(e){res();}
+ });}
+ var ready=open().then(loadAll);
+ function persist(path,data){return new Promise(function(res,rej){
+  if(!idb){try{localStorage.setItem(DBN,JSON.stringify(mem));res();}catch(e){rej({code:"quota_exceeded"});}return;}
+  try{var tx=idb.transaction(ST,"readwrite");var os=tx.objectStore(ST);if(data==null)os.delete(path);else os.put(data,path);tx.oncomplete=function(){res();};tx.onerror=function(){rej({code:"quota_exceeded"});};tx.onabort=function(){rej({code:"quota_exceeded"});};}catch(e){rej({code:"unavailable"});}
+ });}
+ function notify(){listeners.slice().forEach(function(l){try{l();}catch(e){}});}
+ function snapDoc(path){var v=mem[path];return {id:path.split("/").pop(),exists:v!=null,data:function(){return v;},metadata:{fromCache:false,hasPendingWrites:false}};}
+ function snapColl(path){var pre=path+"/";var docs=Object.keys(mem).filter(function(k){return k.indexOf(pre)===0&&k.slice(pre.length).indexOf("/")<0;}).map(function(k){return snapDoc(k);});return {docs:docs,size:docs.length,empty:!docs.length,metadata:{fromCache:false,hasPendingWrites:false}};}
+ function listen(fn){listeners.push(fn);ready.then(fn);return function(){listeners=listeners.filter(function(x){return x!==fn;});};}
+ function docRef(path){return {id:path.split("/").pop(),path:path,
+  set:function(d){mem[path]=JSON.parse(JSON.stringify(d));var p=persist(path,mem[path]);notify();return p;},
+  delete:function(){delete mem[path];var p=persist(path,null);notify();return p;},
+  get:function(){return ready.then(function(){return snapDoc(path);});},
+  onSnapshot:function(n){return listen(function(){n(snapDoc(path));});}};}
+ function collRef(path){return {path:path,
+  doc:function(id){return docRef(path+"/"+(id||("x"+Date.now().toString(36)+Math.random().toString(36).slice(2,6))));},
+  onSnapshot:function(n){return listen(function(){n(snapColl(path));});}};}
+ function replaceAll(obj){var keys=Object.keys(mem);var chain=Promise.resolve();keys.forEach(function(k){if(!(k in obj)){delete mem[k];chain=chain.then(function(){return persist(k,null);});}});Object.keys(obj).forEach(function(k){mem[k]=obj[k];chain=chain.then(function(){return persist(k,obj[k]);});});return chain.then(notify);}
+ return {ready:ready,doc:docRef,collection:collRef,all:function(){return JSON.parse(JSON.stringify(mem));},replaceAll:replaceAll,usesIDB:function(){return !!idb;}};
+})();
+var localDL={save:function(o){return new Promise(function(res){var blob=(o.data instanceof Blob)?o.data:new Blob([o.data],{type:/\.json$/.test(o.filename)?"application/json":"application/octet-stream"});var url=URL.createObjectURL(blob);var a=document.createElement("a");a.href=url;a.download=o.filename;a.rel="noopener";document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(url);a.remove();},8000);res({status:"saved"});});}};
+function copyText(t){
+ function fallback(){try{var ta=document.createElement("textarea");ta.value=t;ta.setAttribute("readonly","");ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();ta.setSelectionRange(0,t.length);var ok=document.execCommand("copy");ta.remove();toast(ok?"Copied. Paste it into your text or email.":"Couldn't copy. Press and hold the text to copy it.");}catch(e){toast("Couldn't copy. Press and hold the text to copy it.");}}
+ try{if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(t).then(function(){toast("Copied. Paste it into your text or email.");},fallback);}else fallback();}catch(e){fallback();}
+}
+function backupNow(){
+ var data={app:"Mold Job App",version:1,saved:new Date().toISOString(),docs:LocalStore.all()};
+ localDL.save({filename:"mold-job-app-backup-"+today()+".json",data:JSON.stringify(data)}).then(function(){try{localStorage.setItem("moldJobAppLastBackup",today());}catch(e){}toast("Backup saved to your Downloads.");render();});
+}
+function lastBackup(){try{return localStorage.getItem("moldJobAppLastBackup")||"";}catch(e){return "";}}
+function daysSince(ds){if(!ds)return 9999;var p=ds.split("-");var d=new Date(+p[0],+p[1]-1,+p[2]);return Math.floor((Date.now()-d.getTime())/86400000);}
+function restoreFile(file){
+ var r=new FileReader();
+ r.onload=function(){var obj;try{obj=JSON.parse(r.result);}catch(e){toast("That file isn't a Mold Job App backup.");return;}
+  if(!obj||obj.app!=="Mold Job App"||!obj.docs){toast("That file isn't a Mold Job App backup.");return;}
+  var n=Object.keys(obj.docs).filter(function(k){return k.indexOf("jobs/")===0;}).length;
+  askConfirm("Replace everything on this device?","This backup from "+nice((obj.saved||"").slice(0,10))+" has "+n+" job"+(n===1?"":"s")+". Everything on this device now will be replaced by it.",function(){LocalStore.replaceAll(obj.docs).then(function(){toast("Backup restored.");setTimeout(function(){location.reload();},800);});});
+ };
+ r.readAsText(file);
+}
+document.addEventListener("change",function(e){var el=e.target;if(el.getAttribute&&el.getAttribute("data-act-file")==="restore"&&el.files&&el.files[0]){restoreFile(el.files[0]);el.value="";}});
+
+// ---------- boot ----------
+try{if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register("sw.js").catch(function(){});}catch(e){}
+render();
+var slow=false;var loadTimer=setTimeout(function(){if(!loaded&&db){slow=true;render();}else if(!loaded){offline=true;render();}},10000);
+(async function(){
+ try{await LocalStore.ready;db=LocalStore;}catch(x){db=null;}
+ dl=localDL; dict=null;
+ if(!db){clearTimeout(loadTimer);offline=true;render();return;}
+ var got={jobs:false,settings:false};
+ function ready(){if(got.jobs&&got.settings&&!loaded){loaded=true;offline=false;slow=false;clearTimeout(loadTimer);if(!settings.name)view={name:"setup",filter:"active",q:""};render();}}
+ db.collection("jobs").onSnapshot(function(snap){
+  var next={};snap.docs.forEach(function(dsn){var dd=dsn.data();if(dd)next[dsn.id]=Object.assign({},clone(dd),{id:dsn.id});});
+  // keep local unsaved copy of the open job
+  if(cur&&next[cur.id]&&(saveTimer||saving)){next[cur.id]=clone(cur);}
+  jobs=next;got.jobs=true;
+  if(!snap.metadata.fromCache){ready();}
+  var ae=document.activeElement;if(view.name==="home"&&!(ae&&ae.getAttribute&&ae.getAttribute("data-act-input")==="search"))render();
+ },function(err){got.jobs=true;ready();handleErr(err);});
+ db.doc("settings/company").onSnapshot(function(s){
+  if(!((view.name==="settings"||view.name==="setup")&&setTimer)){settings=s.exists?clone(s.data()):{};}
+  got.settings=true;if(!s.metadata.fromCache)ready();
+  if(view.name==="home")render();
+ },function(err){got.settings=true;ready();});
+ db.collection("crew").onSnapshot(function(snap){
+  var next={};snap.docs.forEach(function(dsn){var dd=dsn.data();if(dd)next[dsn.id]=Object.assign({},clone(dd),{id:dsn.id});});
+  if(curCrew&&crewTimer)next[curCrew.id]=clone(curCrew);
+  crew=next;if(view.name==="crew")render();
+ },function(){});
+ if(pendingJob)doSave();
+})();
+})();
+</script>
+</body>
+</html>
