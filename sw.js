@@ -1,5 +1,5 @@
 // Keeps the app working without internet once it has been opened from a web address.
-var CACHE = "mold-job-app-v1";
+var CACHE = "mold-job-app-v2";
 var FILES = ["./", "index.html", "jspdf.umd.min.js", "manifest.json", "icon-180.png", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));

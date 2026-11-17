@@ -131,8 +131,8 @@ var TRAIN=[["cont","Containment and negative pressure"],["remove","Safe removal 
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
 function get(o,p){var a=p.split(".");for(var i=0;i<a.length;i++){if(o==null)return undefined;o=o[a[i]];}return o;}
 function set(o,p,v){var a=p.split(".");for(var i=0;i<a.length-1;i++){var k=a[i];if(o[k]==null||typeof o[k]!=="object")o[k]=/^\d+$/.test(a[i+1])?[]:{};o=o[k];}o[a[a.length-1]]=v;}
-function money(n){n=Number(n)||0;return "$"+n.toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:2});}
-function num(v){var n=parseFloat(String(v==null?"":v).replace(/[^0-9.\-]/g,""));return isNaN(n)?0:n;}
+function money(n){n=num(n);var c=Math.round(Math.abs(n)*100)%100!==0;return (n<0?"-$":"$")+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:c?2:0,maximumFractionDigits:2});}
+function num(v){if(typeof v==="number")return isFinite(v)?v:0;var t=String(v==null?"":v).trim();var neg=/^\(.*\)$/.test(t)||/^-/.test(t.replace(/[$\s]/g,""));t=t.replace(/[^0-9.]/g,"");var parts=t.split(".");if(parts.length>2)t=parts[0]+"."+parts.slice(1).join("");var n=parseFloat(t);if(isNaN(n))return 0;n=Math.round(n*100)/100;return neg?-n:n;}
 function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function nice(d){if(!d)return "";var p=d.split("-");if(p.length!==3)return d;var m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return m[+p[1]-1]+" "+(+p[2])+", "+p[0];}
 function clone(o){return JSON.parse(JSON.stringify(o||{}));}
@@ -141,7 +141,7 @@ function toast(t){var el=document.createElement("div");el.className="toast";el.t
 
 // ---------- calculations ----------
 function quoteTotal(j){var s=0;(get(j,"quote.lines")||[]).forEach(function(l){s+=num(l.price);});return s;}
-function changesTotal(j){var s=0;(j.changes||[]).forEach(function(c){if(c.custSig)s+=num(c.amount);});return s;}
+function changesTotal(j){var s=0;(j.changes||[]).forEach(function(c){if(c.custSig)s+=num(c.frozen?c.frozen.amount:c.amount);});return s;}
 function jobTotal(j){return quoteTotal(j)+changesTotal(j);}
 function paidTotal(j){var s=0;(get(j,"pay.payments")||[]).forEach(function(p){s+=num(p.amount);});return s;}
 function balance(j){return jobTotal(j)-paidTotal(j);}
@@ -231,20 +231,44 @@ function fArea(label,p,o){o=o||{};var v=get(cur,p);return '<label class="fld"><s
 function fSeg(label,p,opts){var v=get(cur,p);return '<div class="fld"><span>'+esc(label)+'</span><div class="seg">'+opts.map(function(op){var val=Array.isArray(op)?op[0]:op, lab=Array.isArray(op)?op[1]:op;return '<button type="button" class="'+(v===val?'on':'')+'" data-act="pick" data-f="'+p+'" data-v="'+esc(val)+'">'+esc(lab)+'</button>';}).join("")+'</div></div>';}
 function fTick(label,p){var on=!!get(cur,p);return '<button type="button" class="tick'+(on?' on':'')+'" data-act="tick" data-f="'+p+'"><span class="box">'+(on?'✓':'')+'</span><span>'+esc(label)+'</span></button>';}
 function fSig(label,p,disabled){var v=get(cur,p);
- if(v)return '<div class="fld"><span>'+esc(label)+'</span><img class="sigimg" alt="Signature" src="'+esc(v)+'"><div class="row" style="margin-top:8px"><button type="button" class="btn sm" data-act="unsign" data-f="'+p+'">Clear and sign again</button></div></div>';
+ if(v)return '<div class="fld"><span>'+esc(label)+'</span><img class="sigimg" alt="Signature" src="'+esc(v)+'"><div class="row" style="margin-top:8px"><span class="hint" style="margin:0">Signed '+esc(nice(get(cur,p.replace(/Sig$/,"Date"))))+'</span><button type="button" class="btn sm" data-act="unsign" data-f="'+p+'">Void and sign again</button></div></div>';
  if(disabled)return '<div class="fld"><span>'+esc(label)+'</span><div class="banner warn" style="margin:0">Signing is locked until the attorney-approved agreement wording is added in Settings.</div></div>';
  return '<div class="fld"><span>'+esc(label)+' (sign with a finger)</span><canvas class="sig" data-sig="'+p+'" width="700" height="200"></canvas><div class="row" style="margin-top:8px"><button type="button" class="btn sm" data-act="sigclear" data-f="'+p+'">Clear</button><button type="button" class="btn sm pri" data-act="sigsave" data-f="'+p+'">Save signature</button></div></div>';}
 function micIcon(){return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>';}
 
 
 // ---------- agreements ----------
-var HOLIDAYS=["2026-01-01","2026-01-19","2026-02-16","2026-05-25","2026-06-19","2026-07-03","2026-09-07","2026-10-12","2026-11-11","2026-11-26","2026-11-27","2026-12-25","2027-01-01","2027-01-18","2027-02-15","2027-05-31","2027-06-18","2027-07-05","2027-09-06","2027-10-11","2027-11-11","2027-11-25","2027-11-26","2027-12-24","2027-12-31"];
-function isIns(j){return get(j,"customer.payType")==="Insurance";}
 function ymd(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
-function addBizDays(ds,n){if(!ds)return "";var p=ds.split("-");var d=new Date(+p[0],+p[1]-1,+p[2]);var c=0;while(c<n){d.setDate(d.getDate()+1);var w=d.getDay();if(w!==0&&w!==6&&HOLIDAYS.indexOf(ymd(d))<0)c++;}return ymd(d);}
-function cancelEnds(j){if(get(j,"agree.atHome")!=="Yes")return "";var dt=get(j,"agree.custDate");if(!dt)return "";return addBizDays(dt,get(j,"agree.senior")==="Yes"?7:5);}
+function nthWeekday(y,m,wd,n){var d=new Date(y,m,1);var c=0;while(true){if(d.getDay()===wd){c++;if(c===n)return new Date(d);}d.setDate(d.getDate()+1);}}
+function lastWeekday(y,m,wd){var d=new Date(y,m+1,0);while(d.getDay()!==wd)d.setDate(d.getDate()-1);return d;}
+var holCache={};
+function mdHolidays(y){
+ if(holCache[y])return holCache[y];
+ var list=[new Date(y,0,1),nthWeekday(y,1,1,3),lastWeekday(y,4,1),new Date(y,6,4),nthWeekday(y,8,1,1),nthWeekday(y,9,1,2),new Date(y,10,11),nthWeekday(y,10,4,4),new Date(y,11,25)];
+ var out={};
+ list.forEach(function(d){out[ymd(d)]=1;var w=d.getDay();if(w===6){var f=new Date(d);f.setDate(f.getDate()-1);out[ymd(f)]=1;}if(w===0){var m=new Date(d);m.setDate(m.getDate()+1);out[ymd(m)]=1;}});
+ holCache[y]=out;return out;
+}
+function isIns(j){return get(j,"customer.payType")==="Insurance";}
+function addBizDays(ds,n){if(!ds)return "";var p=ds.split("-");var d=new Date(+p[0],+p[1]-1,+p[2]);var c=0;while(c<n){d.setDate(d.getDate()+1);if(d.getDay()!==0&&!mdHolidays(d.getFullYear())[ymd(d)])c++;}return ymd(d);}
+function cancelEnds(j){var fz=get(j,"agree.frozen");var home=fz?fz.atHome:get(j,"agree.atHome");if(home!=="Yes")return "";var dt=get(j,"agree.custDate");if(!dt)return "";return addBizDays(dt,(fz?fz.senior:get(j,"agree.senior"))==="Yes"?7:5);}
 function inCancel(j){var e=cancelEnds(j);return !!e&&today()<=e;}
 function B(v){return v?String(v):"________";}
+function freezeAgree(j){if(get(j,"agree.frozen"))return;set(j,"agree.frozen",{at:new Date().toISOString(),payType:get(j,"customer.payType"),price:quoteTotal(j),lines:clone(get(j,"quote.lines")||[]),deposit:get(j,"agree.deposit")||"",atHome:get(j,"agree.atHome")||"",senior:get(j,"agree.senior")||"",text:agreementText(j)});}
+function freezeDtp(j){if(get(j,"agree.dtpFrozen"))return;set(j,"agree.dtpFrozen",{at:new Date().toISOString(),text:dtpText(j)});}
+function freezeChange(j,i){var c=j.changes[i];if(c.frozen)return;c.frozen={at:new Date().toISOString(),date:c.date||"",reason:c.reason||"",work:c.work||"",amount:num(c.amount),finishDate:c.finishDate||"",affects:c.affects||"",totalBefore:jobTotal(j)};}
+function finishMeaning(j){return "The customer's signature confirms they received this certificate and that the work listed was done, except anything noted as not finished"+(isIns(j)?", and lets their insurance company and mortgage company release payment to us for this work":"")+". It does not waive their rights or the 90-day workmanship promise, and does not mean hidden conditions don't exist.";}
+function freezeFinish(j){if(get(j,"finish.frozen"))return;var f=j.finish||{};set(j,"finish.frozen",{at:new Date().toISOString(),date:f.date||"",checks:clone(f.checks||{}),notDone:f.notDone||"",source:f.source||"",tester:f.tester||get(j,"quote.tester")||settings.tester||"",ins:isIns(j)});}
+function lockStart(on){return on?'<fieldset disabled style="border:0;padding:0;margin:0;min-width:0">':'';}
+function lockEnd(on){return on?'</fieldset>':'';}
+function voidDoc(j,kind,i){
+ j.voided=j.voided||[];var rec={kind:kind,voidedAt:new Date().toISOString()};
+ if(kind==="agree"){rec.frozen=get(j,"agree.frozen");rec.custSig=get(j,"agree.custSig");rec.coSig=get(j,"agree.coSig");rec.ackSig=get(j,"agree.ackSig");["frozen","custSig","coSig","custDate","coDate","ackSig","ackDate"].forEach(function(k){set(j,"agree."+k,null);});}
+ if(kind==="dtp"){rec.frozen=get(j,"agree.dtpFrozen");rec.sig=get(j,"agree.dtpSig");["dtpFrozen","dtpSig","dtpDate"].forEach(function(k){set(j,"agree."+k,null);});}
+ if(kind==="change"){var c=j.changes[i];rec.index=i;rec.frozen=c.frozen;rec.custSig=c.custSig;rec.coSig=c.coSig;["frozen","custSig","coSig","custDate","coDate"].forEach(function(k){c[k]=null;});}
+ if(kind==="finish"){rec.frozen=get(j,"finish.frozen");rec.custSig=get(j,"finish.custSig");rec.coSig=get(j,"finish.coSig");["frozen","custSig","coSig","custDate","coDate"].forEach(function(k){set(j,"finish."+k,null);});}
+ j.voided.push(rec);
+}
 var MHIC_NOTICE="MARYLAND HOME IMPROVEMENT COMMISSION NOTICE\nEach contractor must be licensed by the Maryland Home Improvement Commission, and anyone may ask the Commission about a contractor or subcontractor. Commission phone: 410-230-6231 or 1-888-218-5925. Website: labor.maryland.gov/license/mhic.\n1. Formal mediation of disputes between homeowners and contractors is available through the Commission;\n2. The Commission administers the Guaranty Fund, which may compensate homeowners for certain actual losses caused by acts or omissions of licensed contractors; and\n3. A homeowner may request that a contractor purchase a performance bond for additional protection against losses not covered by the Guaranty Fund.";
 function agreementText(j){
  var c=co(), ins=isIns(j), price=money(quoteTotal(j));
@@ -260,7 +284,7 @@ function agreementText(j){
  t.push("1. THE WORK\n"+c+" (\"we\") will do the mold remediation work in the attached written quote for job "+B(j.num)+", which is part of this agreement: containment, negative air pressure, removal of the affected materials listed, HEPA vacuuming, cleaning, and bagging and hauling away the waste. Only the work and areas listed in the quote are included.\nNot included: rebuilding (drywall, paint, flooring, trim); fixing the leak or water source; lead or asbestos work; contents cleaning; and hidden areas we could not see, unless added in writing.");
  t.push("2. DATES\nWork starts about "+start+" and should be substantially complete about "+end+". Weather, access, material supply, testing results"+(ins?" or insurance delays":"")+" can move these dates, and we will tell you if they change.");
  if(ins){
-  t.push("3. PRICE AND WHO PAYS\nThe price is "+price+", as shown in the attached quote.\n- You are responsible for paying us, whether or not your insurance company pays. Insurance is how you may pay us; it does not change who owes us.\n- You pay your deductible, any amount the insurer holds back (such as depreciation), and any work your insurer doesn't cover that you asked us to do.\n- Deposit: "+dep+" at signing (never more than one-third of the price). No payment is due before you sign.\n- Balance: due within 10 days of you receiving the insurance payment for this work, or 30 days after we finish, whichever comes first.\n- We do not pay, waive, rebate or discount your deductible in any way. Maryland law forbids it.");
+  t.push("3. PRICE AND WHO PAYS\nThe price is "+price+", as shown in the attached quote.\n- You are responsible for paying us, whether or not your insurance company pays. Insurance is how you may pay us; it does not change who owes us.\n- You pay your deductible, any amount the insurer holds back (such as depreciation), and any work your insurer doesn't cover that you asked us to do.\n- Deposit: "+dep+" at signing (never more than one-third of the price). No payment is due before you sign.\n- Balance: due within 5 business days after you receive any insurance payment for this work, and in any case no later than 30 days after we finish.\n- We do not pay, waive, rebate or discount your deductible in any way. Maryland law forbids it.");
   t.push("4. YOUR INSURANCE CLAIM\nYour claim stays yours. We will give you, and your insurance company if you ask us to, our estimate, photos, moisture readings, reports and invoices for this work, and answer the insurer's questions about the work we did. We do not negotiate your claim, interpret your policy, or argue coverage for you. Only you, your attorney or a licensed public adjuster can do that. If we find more damage your insurance may cover, we stop that part of the work, show you photos, and send you and your insurer a written supplement. We do not do the extra work until you sign a Change Order. If you tell us to go ahead before the insurer approves it, you are responsible for paying for it if the insurer says no. You agree to sign the Direction to Pay so the insurer includes us on payments for our work.");
   t.push("5. YOUR MORTGAGE COMPANY\nIf a mortgage company ("+B(get(j,"ins.mortgage"))+", loan #"+B(get(j,"ins.loan"))+") is named on insurance checks, you authorize us to talk with them about this job, send invoices, completion certificates and photos, ask for inspections, and ask for checks to be released for our work. This permission ends when we're paid in full, or sooner if you cancel it in writing.");
  } else {
@@ -283,8 +307,9 @@ function agreementText(j){
 }
 function dtpText(j){
  var c=co();
- return "DIRECTION TO PAY\n"+c+" · "+B(settings.address)+" · MHIC License #"+B(settings.mhic)+"\nJob "+B(j.num)+" · Insured: "+B(get(j,"customer.name"))+" · Property: "+B(get(j,"customer.address"))+"\nInsurance: "+B(get(j,"ins.company"))+" · Claim #"+B(get(j,"ins.claim"))+" · Policy #"+B(get(j,"ins.policy"))+" · Date of loss: "+B(nice(get(j,"ins.lossDate")))+"\nMortgage company: "+B(get(j,"ins.mortgage"))+" · Loan #"+B(get(j,"ins.loan"))+"\n\nTo the insurance company named above:\nI/we direct you to include "+c+" as a payee on any payment you issue under the claim above for the mold remediation work "+c+" performs at the property, or to pay "+c+" directly, up to the amount of its invoices for that work.\n\n1. This is a payment instruction only. It is not an assignment of my claim or my policy. I keep all of my rights under my policy and remain in control of my claim.\n2. "+c+" does not represent me in my claim and will not negotiate it. I may speak with you, my attorney or a licensed public adjuster about my claim at any time.\n3. You may share with "+c+" the parts of the claim file, estimates and payment information that relate to its work, so it can confirm what has been paid.\n4. If a payment for "+c+"'s work is sent to me instead, I will endorse it or pay "+c+" the amount owed within 5 business days of receiving it.\n5. If my mortgage company is on the check, I authorize "+c+" to ask the mortgage company to endorse and release the funds for its work.\n6. This direction stays in effect until "+c+" has been paid in full for its work on this claim, unless "+c+" releases it in writing. A copy or electronic copy has the same effect as the original.\n7. This direction does not change my own obligation, under my agreement with "+c+", to pay for the work.";
+ return "DIRECTION TO PAY\n"+c+" · "+B(settings.address)+" · MHIC License #"+B(settings.mhic)+"\nJob "+B(j.num)+" · Insured: "+B(get(j,"customer.name"))+" · Property: "+B(get(j,"customer.address"))+"\nInsurance: "+B(get(j,"ins.company"))+" · Claim #"+B(get(j,"ins.claim"))+" · Policy #"+B(get(j,"ins.policy"))+" · Date of loss: "+B(nice(get(j,"ins.lossDate")))+"\nMortgage company: "+B(get(j,"ins.mortgage"))+" · Loan #"+B(get(j,"ins.loan"))+"\n\nTo the insurance company named above:\nI/we direct you to include "+c+" as a payee on any payment you issue under the claim above for the mold remediation work "+c+" performs at the property, or to pay "+c+" directly, up to the amount of its invoices for that work.\n\n1. This is a payment instruction only. It is not an assignment of my claim or my policy. I keep all of my rights under my policy and remain in control of my claim.\n2. "+c+" does not represent me in my claim and will not negotiate it. I may speak with you, my attorney or a licensed public adjuster about my claim at any time.\n3. You may share with "+c+" the parts of the claim file, estimates and payment information that relate to its work, so it can confirm what has been paid.\n4. If a payment for "+c+"'s work is sent to me instead, I will endorse it or pay "+c+" the amount owed within 5 business days of receiving it, as my agreement with "+c+" also says.\n5. If my mortgage company is on the check, I authorize "+c+" to ask the mortgage company to endorse and release the funds for its work.\n6. This direction stays in effect until "+c+" has been paid in full for its work on this claim, unless "+c+" releases it in writing. A copy or electronic copy has the same effect as the original.\n7. This direction does not change my own obligation, under my agreement with "+c+", to pay for the work.";
 }
+function ackText(j){var nm=get(j,"agree.custName")||get(j,"customer.name")||"________";return "ACKNOWLEDGMENT OF ORAL NOTICE OF RIGHT TO CANCEL\n\nI, "+nm+", have been provided oral notice that I have the right to cancel this transaction, without any penalty or obligation, within 5 business days from the date of the transaction specified on the \"Notice of Cancellation\", or, if I am at least 65 years old, within 7 business days from the date of the transaction specified on the \"Notice of Cancellation\".\n\n["+((get(j,"agree.frozen")||{}).senior==="Yes"||get(j,"agree.senior")==="Yes"?"X":" ")+"] check if buyer is at least 65 years old";}
 function cancelText(j){
  var end=nice(cancelEnds(j))||"________";
  return "NOTICE OF CANCELLATION\nJob "+B(j.num)+" · Date of transaction: "+B(nice(get(j,"agree.custDate")))+"\n\nYou may cancel this transaction, without any penalty or obligation, at any time before midnight of the fifth business day after the date above (the seventh business day if you are 65 or older).\n\nIf you cancel, any property you traded in, any payments you made under the contract, and any papers you signed will be returned to you within 10 business days after we receive your cancellation notice, and any security interest arising out of the transaction will be cancelled.\n\nIf you cancel, you must make available to us at your home, in substantially as good condition as when received, any goods delivered to you under this contract; or you may, if you wish, comply with our instructions about the return shipment of the goods at our expense and risk.\n\nTo cancel this transaction, mail or deliver a signed and dated copy of this cancellation notice, or any other written notice, to "+co()+", "+B(settings.address)+(settings.email?", "+settings.email:"")+", not later than midnight of "+end+".\n\nI HEREBY CANCEL THIS TRANSACTION.\n\nDate: ______________    Customer signature: ______________________________";
@@ -359,7 +384,7 @@ var STEP_RENDER={
   h+=fSeg("They are the","customer.role",["Owner","Tenant","Property manager","Other"]);
   if(get(j,"customer.role")&&get(j,"customer.role")!=="Owner")h+='<div class="grid2">'+fText("Owner's name","customer.ownerName")+fText("Owner's phone","customer.ownerPhone",{type:"tel",im:"tel"})+'</div>';
   h+=fSeg("How did they find us?","customer.source",["Google","Referral","Insurance","Website","Truck / sign","Other"]);
-  h+=fSeg("Who is paying for the job?","customer.payType",["Insurance","Self-pay"]);
+  h+=lockStart(!!get(j,"agree.frozen"))+fSeg("Who is paying for the job?","customer.payType",["Insurance","Self-pay"])+lockEnd(!!get(j,"agree.frozen"));
   if(isIns(j))h+='<div class="card" style="background:var(--bg)"><h3>Insurance claim</h3><div class="grid2">'+fText("Insurance company","ins.company")+fText("Claim number","ins.claim")+fText("Policy number","ins.policy")+fText("Date of loss","ins.lossDate",{type:"date"})+fText("Adjuster name","ins.adjuster")+fText("Adjuster phone","ins.adjPhone",{type:"tel",im:"tel"})+fText("Mortgage company (if any)","ins.mortgage")+fText("Loan number","ins.loan")+'</div><p class="hint" style="margin:0">Deductible: the customer pays it. Never waive or cover it.</p></div>';
   h+=fArea("What are they seeing, and where?","customer.notes",{ph:"Rooms, about how big, when they first noticed it"});
   h+='</div>';
@@ -401,14 +426,15 @@ var STEP_RENDER={
  },
  quote:function(j){
   if(!get(j,"quote.lines")){set(j,"quote.lines",LINE_DEFAULTS.map(function(n){return {name:n,qty:"",price:""};}));}
-  var h='<div class="card"><h2>Quote</h2><p class="hint">Type the price for each part of the job. The total adds itself up.</p><table class="lines"><tbody>';
+  var qlock=!!get(j,"agree.frozen");
+  var h=(qlock?'<div class="banner ok">The agreement is signed, so this quote is locked. Extra work or price changes go on a Change Order.</div>':'')+lockStart(qlock)+'<div class="card"><h2>Quote</h2><p class="hint">Type the price for each part of the job. The total adds itself up.</p><table class="lines"><tbody>';
   (j.quote.lines||[]).forEach(function(l,i){h+='<tr><td style="width:46%"><input aria-label="Work" data-f="quote.lines.'+i+'.name" value="'+esc(l.name)+'"></td><td style="width:24%"><input aria-label="Area or amount" data-f="quote.lines.'+i+'.qty" placeholder="Area / amount" value="'+esc(l.qty)+'"></td><td style="width:24%"><input aria-label="Price" data-f="quote.lines.'+i+'.price" inputmode="decimal" placeholder="$" value="'+esc(l.price)+'"></td><td><button class="btn sm" data-act="delline" data-v="'+i+'" aria-label="Remove line">✕</button></td></tr>';});
   h+='</tbody></table><div class="row" style="justify-content:space-between;margin-top:10px"><button class="btn sm" data-act="addline">+ Add a line</button><div class="total">Total <span data-calc="qtotal">'+money(quoteTotal(j))+'</span></div></div></div>';
   h+='<div class="card"><div class="grid2">'+fText("Days the work should take","quote.days",{im:"numeric"})+fText("Proposed start date","quote.start",{type:"date"})+fText("Quote good until","quote.validUntil",{type:"date"})+fText("Independent tester","quote.tester",{ph:settings.tester||""})+'</div>';
   h+=fSeg("Who pays for the independent test?","quote.testerPays",["Customer","Included in our price","Insurance"]);
   h+=fArea("What the customer does before we start","quote.prep",{ph:"Clear the area, put pets away, parking"});
   h+='<p class="hint"><b>Always included in the customer copy:</b> not included are rebuilding (drywall, paint, flooring), fixing the leak unless listed, lead or asbestos work, and hidden areas we could not see. If we find more, we stop and write a change before doing more work.</p></div>';
-  h+='<div class="card"><h3>Owner approval</h3>'+fTick("I checked the scope and price","quote.approved")+fText("Approved by","quote.approvedBy")+'</div>';
+  h+='<div class="card"><h3>Owner approval</h3>'+fTick("I checked the scope and price","quote.approved")+fText("Approved by","quote.approvedBy")+'</div>'+lockEnd(qlock);
   h+='<div class="card"><h3>Send it</h3><div class="row"><button class="btn pri" data-act="pdf" data-v="quote"'+(get(j,"quote.approved")?'':' disabled')+'>Download customer quote (PDF)</button>'+fText("Date sent","quote.sentDate",{type:"date"}).replace('class="fld"','class="fld" style="flex:1;min-width:220px;margin:0"')+'</div>'+(get(j,"quote.approved")?'':'<p class="hint">Tick "I checked the scope and price" first.</p>')+'</div>';
   if(get(j,"quote.sentDate"))h+=msgCard("quote sent","quote",j)+msgCard("quote follow-up","quoteFollow",j);
   return h;
@@ -417,28 +443,31 @@ var STEP_RENDER={
   var ins=isIns(j), h='';
   if(!get(j,"customer.payType"))return '<div class="card"><h2>Customer agreement</h2><p>First pick who is paying: insurance or self-pay.</p>'+fSeg("Who is paying for the job?","customer.payType",["Insurance","Self-pay"])+'</div>';
   h+='<div class="card"><h2>'+(ins?'Work Authorization (insurance job)':'Remediation Contract (self-pay)')+'</h2><p class="hint">Job '+esc(j.num)+' · Price <b data-calc="jtotal">'+money(quoteTotal(j))+'</b> · '+(ins?'Insurance: '+esc(get(j,"ins.company")||"not filled in yet"):'Customer pays directly')+'</p>';
-  h+=fSeg("Who is paying for the job?","customer.payType",["Insurance","Self-pay"]);
+  var alock=!!get(j,"agree.frozen");
+  if(alock)h+='<div class="banner ok">Signed '+esc(nice((get(j,"agree.frozen").at||"").slice(0,10)))+'. The terms below are locked. To change them, void the agreement (under the signatures) and have it signed again.</div>';
+  h+=lockStart(alock)+fSeg("Who is paying for the job?","customer.payType",["Insurance","Self-pay"]);
   var maxDep=Math.floor(quoteTotal(j)/3);
   h+='<div class="grid2">'+fText("Deposit at signing ($), max "+money(maxDep),"agree.deposit",{im:"decimal",ph:settings.depositPct?String(Math.min(maxDep,Math.round(quoteTotal(j)*num(settings.depositPct)/100))):""})+(ins?'':fText("Balance due","agree.rest",{ph:"When the work is finished"}))+fText("Start date","agree.startDate",{type:"date"})+fText("Expected finish","agree.endDate",{type:"date"})+'</div>';
   if(num(get(j,"agree.deposit"))>maxDep&&maxDep>0)h+='<div class="banner bad">The deposit can\'t be more than one-third of the price ('+money(maxDep)+').</div>';
   h+=fSeg("Who fixes the water problem?","agree.sourceBy",["Customer, before we start","Already fixed","Someone else, during our work"]);
   h+=fSeg("Job photos allowed?","agree.photoOk",["Yes","Yes, no faces or house number","No"]);
   h+=fSeg("Photos for advertising?","agree.marketingOk",["No","Yes, with written OK"]);
-  h+=fSeg("Signing at the customer's home?","agree.atHome",["Yes","No"]);
+  h+=fSeg("Was the job sold at the customer's home, or anywhere other than your office?","agree.atHome",["Yes","No"]);
+  h+='<p class="hint" style="margin-top:-4px">Yes if you or your crew met with the customer and they agreed anywhere but your place of business. That gives them a legal right to cancel.</p>';
   if(get(j,"agree.atHome")==="Yes")h+=fSeg("Is the customer 65 or older?","agree.senior",["No","Yes"]);
-  h+='</div>';
-  h+='<div class="card"><h3>Agreement wording</h3><p class="hint">Read it over with the customer. Your company details and this job\'s details are filled in.</p><div class="contract">'+esc(agreementText(j))+'</div></div>';
+  h+=lockEnd(alock)+'</div>';
+  h+='<div class="card"><h3>Agreement wording</h3><p class="hint">Read it over with the customer. Your company details and this job\'s details are filled in.</p><div class="contract">'+esc(alock?get(j,"agree.frozen").text:agreementText(j))+'</div></div>';
   h+='<div class="card"><h3>Signatures</h3>'+fText("Customer name","agree.custName",{ph:get(j,"customer.name")||""})+fSig("Customer signature","agree.custSig",false)+fText("Company representative","agree.coName",{ph:settings.owner||""})+fSig("Company signature","agree.coSig",false);
   h+='<div class="row"><button class="btn pri" data-act="pdf" data-v="agree"'+(get(j,"agree.custSig")?'':' disabled')+'>Download signed agreement (PDF)</button></div></div>';
   if(ins){
-   h+='<div class="card"><h3>Direction to Pay</h3><p class="hint">Tells the insurer to put the company on the check for our work. It does not hand over the claim. Send it to the insurer with the first invoice.</p><div class="contract">'+esc(dtpText(j))+'</div>'+fSig("Insured's signature","agree.dtpSig",false)+'<div class="row"><button class="btn pri" data-act="pdf" data-v="dtp"'+(get(j,"agree.dtpSig")?'':' disabled')+'>Download Direction to Pay (PDF)</button></div></div>';
+   h+='<div class="card"><h3>Direction to Pay</h3><p class="hint">Tells the insurer to put the company on the check for our work. It does not hand over the claim. Send it to the insurer with the first invoice.</p><div class="contract">'+esc(get(j,"agree.dtpFrozen")?get(j,"agree.dtpFrozen").text:dtpText(j))+'</div>'+fSig("Insured's signature","agree.dtpSig",false)+'<div class="row"><button class="btn pri" data-act="pdf" data-v="dtp"'+(get(j,"agree.dtpSig")?'':' disabled')+'>Download Direction to Pay (PDF)</button></div></div>';
   }
   if(get(j,"agree.atHome")==="Yes"){
    var ce=cancelEnds(j);
-   h+='<div class="card"><h3>Notice of Cancellation</h3><p class="hint">Signed at the home, so the customer gets '+(get(j,"agree.senior")==="Yes"?'7':'5')+' business days to cancel. Give them two copies.</p>';
-   if(ce)h+='<div class="banner '+(inCancel(j)?'warn':'ok')+'">'+(inCancel(j)?'Last day to cancel: <b>'+esc(nice(ce))+'</b>. Don\'t start work or take any money until after that day.':'Cancellation period ended '+esc(nice(ce))+'. OK to start.')+'</div>';
+   h+='<div class="card"><h3>Right to cancel</h3><p class="hint">Sold away from your office, so the customer can cancel within '+(get(j,"agree.senior")==="Yes"?'7':'5')+' business days. In Maryland, business days are every day except Sundays and nine holidays, so Saturdays count.</p><p class="hint"><b>Do this:</b> tell the customer out loud that they can cancel, have them sign the acknowledgment below, and give them two copies of the Notice of Cancellation (a separate paper from the agreement).</p><div class="contract">'+esc(ackText(j))+'</div>'+fSig("Customer signs the acknowledgment","agree.ackSig",false);
+   if(ce)h+='<div class="banner '+(inCancel(j)?'warn':'ok')+'">'+(inCancel(j)?'Last day to cancel: <b>'+esc(nice(ce))+'</b> (until midnight). Company rule: don\'t start work or take any money until after that day.':'Cancellation period ended '+esc(nice(ce))+'. OK to start.')+'</div>';
    else h+='<p class="hint">The last day to cancel shows here once the customer signs.</p>';
-   h+='<button class="btn pri" data-act="pdf" data-v="cancel">Download Notice of Cancellation (PDF)</button></div>';
+   h+='<button class="btn pri" data-act="pdf" data-v="cancel">Download Notice of Cancellation and acknowledgment (PDF)</button></div>';
   }
   if(get(j,"agree.custSig"))h+=msgCard("agreement signed","signed",j);
   return h;
@@ -466,15 +495,17 @@ var STEP_RENDER={
   return h;
  },
  finish:function(j){
-  var h='<div class="card"><h2>Finish</h2><p class="hint">Finishing the work is not the same as passing the independent test.</p>';
+  var flock=!!get(j,"finish.frozen");
+  var h=(flock?'<div class="banner ok">Signed. The completion details are locked; only the test result can still be filled in.</div>':'')+'<div class="card"><h2>Finish</h2><p class="hint">Finishing the work is not the same as passing the independent test.</p>'+lockStart(flock);
   FINISH_CHECKS.forEach(function(c){h+=fTick(c[1],"finish.checks."+c[0]);});
   h+=fArea("Anything not finished: why, who will do it, and when","finish.notDone");
   h+=fSeg("Water problem fixed?","finish.source",["Yes","No","Not sure"]);
-  h+='<div class="grid2">'+fText("Independent tester","finish.tester",{ph:get(j,"quote.tester")||settings.tester||""})+fText("Test report date","finish.reportDate",{type:"date"})+'</div>';
+  h+=fText("Independent tester","finish.tester",{ph:get(j,"quote.tester")||settings.tester||""});
+  h+=fText("Date work finished","finish.date",{type:"date"})+lockEnd(flock);
+  h+='<div class="grid2">'+fText("Test report date","finish.reportDate",{type:"date"})+'</div>';
   h+=fSeg("Test result","finish.result",["Waiting","Passed","Needs more work"]);
-  h+=fText("Date work finished","finish.date",{type:"date"});
-  h+='</div><div class="card"><h3>Sign-off</h3>'+fSig("Company representative","finish.coSig",false)+fSig("Customer (received the summary only)","finish.custSig",false);
-  h+='<p class="hint">The customer\'s signature only shows they got the summary. It does not waive anything.</p><div class="row"><button class="btn pri" data-act="pdf" data-v="finish"'+(get(j,"finish.date")?'':' disabled')+'>Download Certificate of Completion (PDF)</button></div></div>';
+  h+='</div><div class="card"><h3>Sign-off</h3>'+fSig("Company representative","finish.coSig",false)+fSig("Customer","finish.custSig",false);
+  h+='<p class="hint">'+esc(finishMeaning(j))+'</p><div class="row"><button class="btn pri" data-act="pdf" data-v="finish"'+(get(j,"finish.date")?'':' disabled')+'>Download Certificate of Completion (PDF)</button></div></div>';
   if(get(j,"finish.date"))h+=msgCard("work done","done",j);
   return h;
  },
@@ -492,15 +523,15 @@ var STEP_RENDER={
 };
 function subBack(label){return '<button class="btn sm" data-act="subback" style="margin-top:12px">‹ '+esc(label)+'</button>';}
 function renderChange(j,i){
- var p="changes."+i+".", ok=true;
- var h=subBack("All changes")+'<div class="card"><h2>Change '+(i+1)+'</h2>';
+ var p="changes."+i+".", ok=true, c0=j.changes[i], clock=!!c0.frozen;
+ var h=subBack("All changes")+(clock?'<div class="banner ok">Signed. This change is locked. To change it, void it under the signatures and have it signed again.</div>':'')+lockStart(clock)+'<div class="card"><h2>Change '+(i+1)+'</h2>';
  h+=fText("Date",p+"date",{type:"date"});
  h+=fArea("What we found and why the change is needed",p+"reason");
  h+=fArea("Work added, removed or changed",p+"work");
  h+='<div class="grid2">'+fText("Amount added (+) or taken off (-)",p+"amount",{im:"decimal",ph:"500 or -200"})+fText("New finish date",p+"finishDate",{type:"date"})+'</div>';
- h+='<p class="hint">Job total before: '+money(jobTotal(j)-(j.changes[i].custSig?num(j.changes[i].amount):0))+' · After this change: <b>'+money(jobTotal(j)+(j.changes[i].custSig?0:num(j.changes[i].amount)))+'</b></p>';
+ h+='<p class="hint">Job total before: '+money(clock?c0.frozen.totalBefore:jobTotal(j))+' · After this change: <b>'+money((clock?c0.frozen.totalBefore:jobTotal(j))+num(clock?c0.frozen.amount:c0.amount))+'</b></p>';
  h+=fSeg("Does it change containment, access or testing?",p+"affects",["No","Yes"]);
- h+='</div><div class="card"><h3>Signatures before the extra work</h3>'+fSig("Customer",p+"custSig",!ok)+fSig("Company representative",p+"coSig",!ok)+'<button class="btn pri" data-act="pdf" data-v="change" data-i="'+i+'"'+(j.changes[i].custSig?'':' disabled')+'>Download change (PDF)</button></div>';
+ h+='</div>'+lockEnd(clock)+'<div class="card"><h3>Signatures before the extra work</h3>'+fSig("Customer",p+"custSig",!ok)+fSig("Company representative",p+"coSig",!ok)+'<button class="btn pri" data-act="pdf" data-v="change" data-i="'+i+'"'+(j.changes[i].custSig?'':' disabled')+'>Download change (PDF)</button></div>';
  h+=msgCard("change needed","change",j);
  return h;
 }
@@ -527,18 +558,18 @@ function renderSetup(){
  h+='<div class="grid2">'+st("Company name","name",{ph:"Example: Clear Path Mold Remediation"})+st("Owner's name","owner")+st("Main phone","phone",{type:"tel",im:"tel"})+st("Business email","email",{type:"email",im:"email"})+'</div>';
  h+=st("Business address","address");
  h+='<div class="grid2">'+st("MHIC license number","mhic")+st("Inspection fee ($)","fee",{im:"decimal",ph:"Example: 250"})+st("Deposit at signing (% of quote, 33 max)","depositPct",{im:"decimal",ph:"Example: 30"})+st("Usual independent tester","tester")+'</div>';
- h+=st("Google review link (optional)","review");
+ h+='<div class="grid2">'+st("This device's letter (A, B, C…)","device",{ph:"A"})+st("Google review link (optional)","review")+'</div><p class="hint">Give each tablet or laptop its own letter so two devices never make the same job number.</p>';
  h+='<button class="big" data-act="setupdone" style="margin-top:16px">Start using the app</button></div>';
- h+='<div class="card"><h3>Good to know</h3><p class="hint" style="margin:0">Your jobs are saved on this device. Make a backup once a week from Settings, and use the same backup to move your jobs to a new device.</p></div></div>';
+ h+='<div class="card"><h3>Good to know</h3><p class="hint" style="margin:0">Your jobs are saved on this device only. Turn on this device\'s screen lock (PIN or fingerprint), and make a password-protected backup once a week from Settings.</p></div></div>';
  return h;
 }
 function renderSettings(){
  var s=settings;cur=null;
  function st(label,k,o){o=o||{};return '<label class="fld"><span>'+esc(label)+'</span><input data-s="'+k+'" type="'+(o.type||"text")+'"'+(o.im?' inputmode="'+o.im+'"':'')+' value="'+esc(s[k]||"")+'"></label>';}
  var h=topBar("Settings","home")+'<div class="wrap">'+statusBanners();
- h+='<div class="card"><h2>Company info</h2><p class="hint">Fill in once. Every customer copy uses these.</p><div class="grid2">'+st("Company name","name")+st("Owner","owner")+st("Main phone","phone",{type:"tel"})+st("Business email","email",{type:"email"})+'</div>'+st("Business address","address")+'<div class="grid2">'+st("MHIC license number","mhic")+st("Inspection fee ($)","fee",{im:"decimal"})+st("Deposit at signing (% of quote)","depositPct",{im:"decimal"})+st("Usual independent tester","tester")+'</div>'+st("Google review link","review")+'</div>';
+ h+='<div class="card"><h2>Company info</h2><p class="hint">Fill in once. Every customer copy uses these.</p><div class="grid2">'+st("Company name","name")+st("Owner","owner")+st("Main phone","phone",{type:"tel"})+st("Business email","email",{type:"email"})+'</div>'+st("Business address","address")+'<div class="grid2">'+st("MHIC license number","mhic")+st("Inspection fee ($)","fee",{im:"decimal"})+st("Deposit at signing (% of quote)","depositPct",{im:"decimal"})+st("Usual independent tester","tester")+st("This device's letter (A, B, C…) for job numbers","device")+'</div>'+st("Google review link","review")+'<p class="hint">Give each tablet or laptop its own letter so two devices never make the same job number (2026-A-001, 2026-B-001).</p></div>';
  h+='<div class="card"><h2>Customer agreements</h2><p class="hint">The app fills in the agreement for each job by itself: the Work Authorization and Direction to Pay for insurance jobs, the Remediation Contract for self-pay jobs, and the Notice of Cancellation when it is signed at the home. This is the November 2026 wording, used until a Maryland attorney reviews it.</p></div>';
- h+='<div class="card"><h2>Backups</h2><p class="hint">Your jobs are saved on this device only. Back up once a week. To move everything to another laptop or tablet, back up here, then restore that file on the other device.</p><p class="hint">Last backup: <b>'+esc(lastBackup()?nice(lastBackup()):"never")+'</b></p><div class="row"><button class="btn pri" data-act="backup">Back up now</button><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">Restore a backup<input type="file" accept=".json,application/json" data-act-file="restore" style="display:none"></label></div><p class="hint" style="margin-top:12px">'+(db?'Changes save by themselves.':'Saving is off in this browser.')+' <span id="saved">'+esc(saveNote)+'</span></p></div></div>';
+ h+='<div class="card"><h2>Backups</h2><p class="hint">Your jobs are saved on this device only. Back up once a week. Each backup is locked with a password you choose. Keep the file somewhere safe off this device, and do not email it.</p><p class="hint">Last backup started: <b>'+esc(lastBackup()?nice(lastBackup()):"never")+'</b></p><div class="row"><button class="btn pri" data-act="backup">Back up now</button><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">Add jobs from a backup<input type="file" accept=".json,application/json" data-act-file="merge" style="display:none"></label><label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">Replace everything with a backup<input type="file" accept=".json,application/json" data-act-file="replace" style="display:none"></label></div><p class="hint" style="margin-top:10px"><b>Add jobs</b> keeps everything on this device and brings in jobs it does not have. <b>Replace everything</b> is for a new or reset device.</p><p class="hint">Protect this device with a screen lock (PIN or fingerprint). Anyone who can open it can see your jobs.</p><p class="hint" style="margin-top:12px">'+(db?'Changes save by themselves.':'Saving is off in this browser.')+' <span id="saved">'+esc(saveNote)+'</span></p></div></div>';
  return h;
 }
 function renderCrewList(){
@@ -549,13 +580,16 @@ function renderCrewList(){
  h+='<button class="big" data-act="addcrew" style="margin-top:12px">+ Add crew member</button></div>';
  return h;
 }
+function crewSig(label,p){var v=get(curCrew,p);
+ if(v)return '<div class="fld"><span>'+esc(label)+'</span><img class="sigimg" alt="Signature" src="'+esc(v)+'"><div class="row" style="margin-top:8px"><span class="hint" style="margin:0">Signed '+esc(nice(get(curCrew,p.replace(/Sig$/,"Date"))))+'</span><button type="button" class="btn sm" data-act="unsign" data-f="crew:'+p+'">Clear and sign again</button></div></div>';
+ return '<div class="fld"><span>'+esc(label)+' (sign with a finger)</span><canvas class="sig" data-sig="crew:'+p+'" width="700" height="200"></canvas><div class="row" style="margin-top:8px"><button type="button" class="btn sm" data-act="sigclear" data-f="crew:'+p+'">Clear</button><button type="button" class="btn sm pri" data-act="sigsave" data-f="crew:'+p+'">Save signature</button></div></div>';}
 function renderCrewEdit(){
  var c=curCrew;
  function ct(label,p,o){o=o||{};return '<label class="fld"><span>'+esc(label)+'</span><input data-c="'+p+'" type="'+(o.type||"text")+'" value="'+esc(get(c,p)||"")+'"></label>';}
  function ctick(label,p){var on=!!get(c,p);return '<button type="button" class="tick'+(on?' on':'')+'" data-act="ctick" data-f="'+p+'"><span class="box">'+(on?'✓':'')+'</span><span>'+esc(label)+'</span></button>';}
  var h=topBar(c.name||"Crew member","crew")+'<div class="wrap">'+statusBanners()+'<div class="card"><div class="grid2">'+ct("Name","name")+ct("Supervisor","supervisor")+'</div>'+ct("Job role and tasks allowed","role")+ct("Certifications checked, with expiration dates","certs")+ctick("Respirator medical clearance and fit test done","fit")+ct("Fit test date","fitDate",{type:"date"})+ct("Tasks that need a supervisor present","supervised")+'</div>';
  h+='<div class="card"><h3>Training</h3>';TRAIN.forEach(function(t){h+='<div style="border-top:1px solid var(--line);padding-top:6px;margin-top:6px"><b>'+esc(t[1])+'</b><div class="grid2">'+ct("Date","topics."+t[0]+".date",{type:"date"})+ct("Trainer","topics."+t[0]+".trainer")+'</div>'+ctick("Showed they can do it","topics."+t[0]+".ok")+'</div>';});
- h+='</div><div class="card">'+ctick("Worker signed this record","workerOk")+ctick("Supervisor approved","supOk")+'<p class="hint">'+esc(saveNote)+'</p></div></div>';
+ h+='</div><div class="card"><h3>Signatures</h3>'+crewSig("Worker","workerSig")+crewSig("Supervisor","supSig")+'<p class="hint">'+esc(saveNote)+'</p></div></div>';
  return h;
 }
 
@@ -599,8 +633,16 @@ document.addEventListener("click",function(e){
  else if(a==="subback"){view.sub=null;view.inc=null;render();window.scrollTo(0,0);}
  else if(a==="addpay"){set(cur,"pay.payments",(get(cur,"pay.payments")||[]).concat([{date:today(),amount:"",method:null}]));changed(true);}
  else if(a==="sigclear"){var cv=app.querySelector('canvas[data-sig="'+f+'"]');if(cv){cv.getContext("2d").clearRect(0,0,cv.width,cv.height);cv._blank=true;}}
- else if(a==="sigsave"){var cv2=app.querySelector('canvas[data-sig="'+f+'"]');if(!cv2||cv2._blank){toast("Sign in the box first");return;}set(cur,f,trimSig(cv2));var dp=f.replace(/Sig$/,"Date");set(cur,dp,today());changed(true);toast("Signature saved");}
- else if(a==="unsign"){askConfirm("Clear this signature?","The signer will need to sign again.",function(){set(cur,f,null);changed(true);});}
+ else if(a==="sigsave"){var cv2=app.querySelector('canvas[data-sig="'+f+'"]');if(!cv2||cv2._blank){toast("Sign in the box first");return;}
+  if(f.indexOf("crew:")===0){var cp=f.slice(5);set(curCrew,cp,trimSig(cv2));set(curCrew,cp.replace(/Sig$/,"Date"),today());saveCrew();rerenderKeep();toast("Signature saved");return;}
+  if(f==="agree.dtpSig")freezeDtp(cur);else if(f.indexOf("agree.")===0)freezeAgree(cur);
+  var mch=f.match(/^changes\.(\d+)\./);if(mch)freezeChange(cur,+mch[1]);
+  if(f.indexOf("finish.")===0)freezeFinish(cur);
+  set(cur,f,trimSig(cv2));var dp=f.replace(/Sig$/,"Date");set(cur,dp,today());changed(true);toast("Signature saved");}
+ else if(a==="unsign"){
+  if(f.indexOf("crew:")===0){askConfirm("Clear this signature?","The person will need to sign again.",function(){set(curCrew,f.slice(5),null);saveCrew();rerenderKeep();});return;}
+  var kind=f==="agree.dtpSig"?"dtp":f.indexOf("agree.")===0?"agree":f.indexOf("finish.")===0?"finish":/^changes\./.test(f)?"change":"";var ci=/^changes\.(\d+)\./.test(f)?+f.split(".")[1]:null;
+  askConfirm("Void this signed document?","Every signature on it is removed and it must be signed again. The voided copy is kept in the job's history.",function(){voidDoc(cur,kind,ci);changed(true);toast("Voided. It can be changed and signed again.");});}
  else if(a==="copy"){copyText(b.getAttribute("data-text"));}
  else if(a==="backup"){backupNow();}
  else if(a==="setupdone"){if(!settings.name||!settings.owner){toast("Add the company name and the owner's name first.");return;}clearTimeout(setTimer);saveSettings();view={name:"home",filter:"active",q:""};render();window.scrollTo(0,0);toast("All set. Tap New customer when someone calls.");}
@@ -639,7 +681,8 @@ function askConfirm(title,body,yes){
 
 // ---------- navigation ----------
 function goStep(i){if(i<0||i>=STEPS.length)return;flushSave();view.step=i;view.sub=null;view.inc=null;render();window.scrollTo(0,0);}
-function nextNum(){var y=new Date().getFullYear(),max=0;Object.keys(jobs).forEach(function(k){var n=jobs[k].num||"";var m=n.match(/^(\d{4})-(\d+)$/);if(m&&+m[1]===y)max=Math.max(max,+m[2]);});return y+"-"+String(max+1).padStart(3,"0");}
+function devCode(){return String(settings.device||"").toUpperCase().replace(/[^A-Z]/g,"").slice(0,2);}
+function nextNum(){var y=new Date().getFullYear(),dc=devCode(),max=0,pre=y+"-"+(dc?dc+"-":"");Object.keys(jobs).forEach(function(k){var n=jobs[k].num||"";if(n.indexOf(pre)===0){var rest=n.slice(pre.length);if(/^\d+$/.test(rest))max=Math.max(max,+rest);}});return pre+String(max+1).padStart(3,"0");}
 function newJob(){
  var id="j"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
  cur={id:id,num:nextNum(),created:new Date().toISOString(),customer:{},screen:{}};
@@ -711,46 +754,51 @@ function makePdf(kind,idx){
   kv("Quote date",nice(get(j,"quote.sentDate")||today()));kv("Good until",nice(get(j,"quote.validUntil")));
   gap();line("What we found",{b:true});line(get(j,"visit.seen")||"");kv("Water source",get(j,"visit.source"));
   gap();line("What we will remove",{b:true});line(get(j,"visit.remove")||"");line("What stays and is cleaned only",{b:true});line(get(j,"visit.keep")||"");
-  gap();line("Price",{b:true});(get(j,"quote.lines")||[]).forEach(function(l){if(l.name||l.price)line((l.name||"")+(l.qty?" ("+l.qty+")":"")+" ...... "+money(l.price),{ind:10});});line("Total: "+money(quoteTotal(j)),{b:true,s:13});
+  gap();line("Price",{b:true});(get(j,"quote.lines")||[]).forEach(function(l){if(String(l.price==null?"":l.price).trim())line((l.name||"")+(l.qty?" ("+l.qty+")":"")+" ...... "+money(l.price),{ind:10});});line("Total: "+money(quoteTotal(j)),{b:true,s:13});
   gap();kv("Expected days of work",get(j,"quote.days"));kv("Proposed start",nice(get(j,"quote.start")));kv("Independent tester",get(j,"quote.tester")||settings.tester);kv("Testing paid by",get(j,"quote.testerPays"));kv("Before we start, please",get(j,"quote.prep"));
   gap();line("Not included",{b:true});line("Rebuilding (new drywall, paint, flooring); fixing the leak or water source unless listed above; lead or asbestos work; hidden areas we could not see. If we open a wall and find more, we stop and write a change for your approval before doing more work.");
   gap();line("We do not promise that insurance will pay, that all mold is gone from the whole property, or that the property is medically safe. This is a quote only; work starts after a signed agreement.",{s:10});
   fname+="quote.pdf";
  } else if(kind==="agree"){
   head(isIns(j)?"Work Authorization and Agreement":"Mold Remediation Contract");
-  agreementText(j).split("\n").slice(3).forEach(function(t){if(!t){gap(4);return;}var b=/^[0-9]+\. [A-Z]|^[A-Z][A-Z ]+$|^MARYLAND|^YOUR RIGHT|^PHOTOS/.test(t);line(t,{b:b,s:b?11:10});});
+  (get(j,"agree.frozen")?get(j,"agree.frozen").text:agreementText(j)).split("\n").slice(3).forEach(function(t){if(!t){gap(4);return;}var b=/^[0-9]+\. [A-Z]|^[A-Z][A-Z ]+$|^MARYLAND|^YOUR RIGHT|^PHOTOS/.test(t);line(t,{b:b,s:b?11:10});});
   gap();sig("Customer: "+(get(j,"agree.custName")||get(j,"customer.name")||""),get(j,"agree.custSig"),get(j,"agree.custDate"));sig("Company: "+(get(j,"agree.coName")||settings.owner||""),get(j,"agree.coSig"),get(j,"agree.coDate"));
   fname+="agreement.pdf";
  } else if(kind==="dtp"){
   head("Direction to Pay");
-  dtpText(j).split("\n").slice(2).forEach(function(t){if(!t){gap(4);return;}line(t,{s:10});});
+  (get(j,"agree.dtpFrozen")?get(j,"agree.dtpFrozen").text:dtpText(j)).split("\n").slice(2).forEach(function(t){if(!t){gap(4);return;}line(t,{s:10});});
   gap();sig("Insured: "+(get(j,"agree.custName")||get(j,"customer.name")||""),get(j,"agree.dtpSig"),get(j,"agree.dtpDate"));
   fname+="direction-to-pay.pdf";
  } else if(kind==="cancel"){
   head("Notice of Cancellation");
   cancelText(j).split("\n").slice(1).forEach(function(t){if(!t){gap(4);return;}line(t,{s:10,b:/^I HEREBY|^You may cancel/.test(t)});});
+  d.addPage();y=54;line("Acknowledgment of Oral Notice of Right to Cancel",{b:true,s:14});gap();
+  ackText(j).split("\n").slice(1).forEach(function(t){if(!t){gap(4);return;}line(t,{s:11});});
+  gap();sig("Customer",get(j,"agree.ackSig"),get(j,"agree.ackDate"));
   fname+="notice-of-cancellation.pdf";
  } else if(kind==="change"){
-  var c=j.changes[+idx];head("Change "+(+idx+1));
-  kv("Date",nice(c.date));gap();line("What we found and why",{b:true});line(c.reason);line("Work added, removed or changed",{b:true});line(c.work);gap();kv("Amount",money(c.amount));kv("New job total",money(jobTotal(j)));kv("New finish date",nice(c.finishDate));kv("Changes containment, access or testing",c.affects);
+  var c=j.changes[+idx], z=c.frozen||{date:c.date,reason:c.reason,work:c.work,amount:num(c.amount),finishDate:c.finishDate,affects:c.affects,totalBefore:jobTotal(j)};head("Change "+(+idx+1));
+  kv("Date",nice(z.date));gap();line("What we found and why",{b:true});line(z.reason);line("Work added, removed or changed",{b:true});line(z.work);gap();kv("Amount",money(z.amount));kv("Job total before this change",money(z.totalBefore));kv("Job total after this change",money(num(z.totalBefore)+num(z.amount)));kv("New finish date",nice(z.finishDate));kv("Changes containment, access or testing",z.affects);
   gap();sig("Customer",c.custSig,c.custDate);sig("Company",c.coSig,c.coDate);
   fname+="change-"+(+idx+1)+".pdf";
  } else if(kind==="finish"){
   head("Certificate of Completion");
   if(isIns(j)){kv("Insurance",(get(j,"ins.company")||"")+" · Claim #"+(get(j,"ins.claim")||""));kv("Mortgage company",get(j,"ins.mortgage"));}
-  kv("Work finished",nice(get(j,"finish.date")));gap();FINISH_CHECKS.forEach(function(k){line((get(j,"finish.checks."+k[0])?"[x] ":"[ ] ")+k[1]);});
-  gap();kv("Not finished yet",get(j,"finish.notDone"));kv("Water problem fixed",get(j,"finish.source"));kv("Independent tester",get(j,"finish.tester")||get(j,"quote.tester"));kv("Test report date",nice(get(j,"finish.reportDate")));kv("Test result",get(j,"finish.result"));
-  gap();line("The customer's signature confirms the work listed was done, except anything noted as not finished, and authorizes the insurer and mortgage company to release payment for this work. It does not waive the customer's rights or the 90-day workmanship promise, and does not mean hidden conditions don't exist. Finishing our work is not the same as passing the independent test.",{s:10});
+  var fz=get(j,"finish.frozen")||{date:get(j,"finish.date"),checks:get(j,"finish.checks")||{},notDone:get(j,"finish.notDone"),source:get(j,"finish.source"),tester:get(j,"finish.tester")||get(j,"quote.tester")};
+  kv("Work finished",nice(fz.date));gap();FINISH_CHECKS.forEach(function(k){line(((fz.checks||{})[k[0]]?"[x] ":"[ ] ")+k[1]);});
+  gap();kv("Not finished yet",fz.notDone||"None");kv("Water problem fixed",fz.source);kv("Independent tester",fz.tester);
+  if(get(j,"finish.result")||get(j,"finish.reportDate")){gap();line("Independent test (filled in after signing)",{b:true});kv("Test report date",nice(get(j,"finish.reportDate")));kv("Test result",get(j,"finish.result"));}
+  gap();line(finishMeaning(j)+" Finishing our work is not the same as passing the independent test.",{s:10});
   gap();sig("Company representative",get(j,"finish.coSig"),get(j,"finish.coDate"));sig("Customer (received)",get(j,"finish.custSig"),get(j,"finish.custDate"));
   fname+="certificate-of-completion.pdf";
  } else if(kind==="invoice"){
   head("Invoice");
   kv("Invoice date",nice(get(j,"pay.invoiceDate")||today()));gap();
-  (get(j,"quote.lines")||[]).forEach(function(l){if(l.name||l.price)line((l.name||"")+" ...... "+money(l.price),{ind:10});});
+  (get(j,"quote.lines")||[]).forEach(function(l){if(String(l.price==null?"":l.price).trim())line((l.name||"")+" ...... "+money(l.price),{ind:10});});
   (j.changes||[]).forEach(function(c,i){if(c.custSig)line("Change "+(i+1)+" ...... "+money(c.amount),{ind:10});});
   gap();line("Total: "+money(jobTotal(j)),{b:true,s:13});
   (get(j,"pay.payments")||[]).forEach(function(p){if(num(p.amount))line("Paid "+nice(p.date)+(p.method?" ("+p.method+")":"")+" ...... -"+money(p.amount),{ind:10});});
-  line("Balance due: "+money(balance(j)),{b:true,s:14});gap();if(isIns(j))line("Your deductible and any amount your insurer holds back are part of what you owe. We cannot waive or reduce your deductible.",{s:10});line("Thank you for choosing "+co()+".");
+  line("Balance due: "+money(balance(j)),{b:true,s:14});gap();line(isIns(j)?"Payment due: within 5 business days after you receive any insurance payment for this work, and no later than 30 days after we finished.":"Payment due: on receipt.",{s:10});if(isIns(j))line("Your deductible and any amount your insurer holds back are part of what you owe. We cannot waive or reduce your deductible.",{s:10});line("Thank you for choosing "+co()+".");
   fname+="invoice.pdf";
  }
  var blob=d.output("blob");
@@ -784,30 +832,88 @@ var LocalStore=(function(){
  function collRef(path){return {path:path,
   doc:function(id){return docRef(path+"/"+(id||("x"+Date.now().toString(36)+Math.random().toString(36).slice(2,6))));},
   onSnapshot:function(n){return listen(function(){n(snapColl(path));});}};}
- function replaceAll(obj){var keys=Object.keys(mem);var chain=Promise.resolve();keys.forEach(function(k){if(!(k in obj)){delete mem[k];chain=chain.then(function(){return persist(k,null);});}});Object.keys(obj).forEach(function(k){mem[k]=obj[k];chain=chain.then(function(){return persist(k,obj[k]);});});return chain.then(notify);}
- return {ready:ready,doc:docRef,collection:collRef,all:function(){return JSON.parse(JSON.stringify(mem));},replaceAll:replaceAll,usesIDB:function(){return !!idb;}};
+ function txWrite(ops,clearFirst){return new Promise(function(res,rej){
+  if(!idb){try{var next=clearFirst?{}:JSON.parse(JSON.stringify(mem));ops.forEach(function(o){next[o.k]=o.v;});localStorage.setItem(DBN,JSON.stringify(next));mem=next;notify();res();}catch(e){rej(e);}return;}
+  try{var tx=idb.transaction(ST,"readwrite"),os=tx.objectStore(ST);if(clearFirst)os.clear();ops.forEach(function(o){os.put(o.v,o.k);});
+   tx.oncomplete=function(){if(clearFirst)mem={};ops.forEach(function(o){mem[o.k]=JSON.parse(JSON.stringify(o.v));});notify();res();};
+   tx.onerror=function(){rej(tx.error||new Error("write failed"));};tx.onabort=function(){rej(tx.error||new Error("write aborted"));};}catch(e){rej(e);}
+ });}
+ return {ready:ready,doc:docRef,collection:collRef,all:function(){return JSON.parse(JSON.stringify(mem));},txWrite:txWrite,get:function(k){return mem[k];},usesIDB:function(){return !!idb;}};
 })();
 var localDL={save:function(o){return new Promise(function(res){var blob=(o.data instanceof Blob)?o.data:new Blob([o.data],{type:/\.json$/.test(o.filename)?"application/json":"application/octet-stream"});var url=URL.createObjectURL(blob);var a=document.createElement("a");a.href=url;a.download=o.filename;a.rel="noopener";document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(url);a.remove();},8000);res({status:"saved"});});}};
 function copyText(t){
  function fallback(){try{var ta=document.createElement("textarea");ta.value=t;ta.setAttribute("readonly","");ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();ta.setSelectionRange(0,t.length);var ok=document.execCommand("copy");ta.remove();toast(ok?"Copied. Paste it into your text or email.":"Couldn't copy. Press and hold the text to copy it.");}catch(e){toast("Couldn't copy. Press and hold the text to copy it.");}}
  try{if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(t).then(function(){toast("Copied. Paste it into your text or email.");},fallback);}else fallback();}catch(e){fallback();}
 }
+function b64e(u8){var s="";for(var i=0;i<u8.length;i+=32768)s+=String.fromCharCode.apply(null,u8.subarray(i,i+32768));return btoa(s);}
+function b64d(t){var s=atob(t),u=new Uint8Array(s.length);for(var i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u;}
+function canProtect(){return !!(window.crypto&&crypto.subtle&&window.isSecureContext!==false);}
+async function sha256(text){var h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(text));return b64e(new Uint8Array(h));}
+async function deriveKey(pw,salt){var base=await crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveKey"]);return crypto.subtle.deriveKey({name:"PBKDF2",salt:salt,iterations:250000,hash:"SHA-256"},base,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);}
+function askPassword(title,body,twice,cb){
+ var m=document.createElement("div");m.className="modal";
+ m.innerHTML='<div class="box2"><h2 style="font-size:22px">'+esc(title)+'</h2><p>'+esc(body)+'</p><label class="fld"><span>Backup password</span><input type="password" id="pw1" autocomplete="new-password"></label>'+(twice?'<label class="fld"><span>Type it again</span><input type="password" id="pw2" autocomplete="new-password"></label>':'')+'<p class="hint" id="pwmsg"></p><div class="row" style="justify-content:flex-end"><button class="btn" data-act="mclose">Cancel</button><button class="btn pri" id="pwok">OK</button></div></div>';
+ document.body.appendChild(m);var i1=m.querySelector("#pw1");i1.focus();
+ m.querySelector("#pwok").addEventListener("click",function(){var a=i1.value,b=twice?m.querySelector("#pw2").value:a,msg=m.querySelector("#pwmsg");
+  if(a.length<6){msg.textContent="Use at least 6 characters.";return;}if(a!==b){msg.textContent="The two passwords don't match.";return;}m.remove();cb(a);});
+}
+function flushAll(){
+ var ops=[];
+ if(cur){clearTimeout(saveTimer);saveTimer=null;cur.updatedAt=new Date().toISOString();jobs[cur.id]=clone(cur);ops.push({k:"jobs/"+cur.id,v:clone(cur)});}
+ if(view.name==="settings"||view.name==="setup"){clearTimeout(setTimer);ops.push({k:"settings/company",v:clone(settings)});}
+ if(curCrew){clearTimeout(crewTimer);crewTimer=null;crew[curCrew.id]=clone(curCrew);ops.push({k:"crew/"+curCrew.id,v:clone(curCrew)});}
+ return ops.length?LocalStore.txWrite(ops,false):Promise.resolve();
+}
 function backupNow(){
- var data={app:"Mold Job App",version:1,saved:new Date().toISOString(),docs:LocalStore.all()};
- localDL.save({filename:"mold-job-app-backup-"+today()+".json",data:JSON.stringify(data)}).then(function(){try{localStorage.setItem("moldJobAppLastBackup",today());}catch(e){}toast("Backup saved to your Downloads.");render();});
+ if(!canProtect()){toast("Backups can't be password-protected here. Open the app from its web address and try again.");return;}
+ askPassword("Protect this backup","Choose a password for the backup file. You'll need it to restore. Write it down somewhere safe: without it, the backup can't be opened.",true,async function(pw){
+  try{
+   await flushAll();
+   var docs=LocalStore.all(), text=JSON.stringify(docs);
+   var salt=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12));
+   var key=await deriveKey(pw,salt), ct=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv:iv},key,new TextEncoder().encode(text)));
+   var jobsN=Object.keys(docs).filter(function(k){return k.indexOf("jobs/")===0;}).length;
+   var file={app:"Mold Job App",version:2,saved:new Date().toISOString(),jobs:jobsN,check:await sha256(text),salt:b64e(salt),iv:b64e(iv),data:b64e(ct)};
+   var name="mold-job-app-backup-"+today()+".json";
+   await localDL.save({filename:name,data:JSON.stringify(file)});
+   try{localStorage.setItem("moldJobAppLastBackup",today());}catch(e){}
+   askConfirm("Check your Downloads","Your browser is saving "+name+" ("+jobsN+" job"+(jobsN===1?"":"s")+"). Open your Downloads folder and make sure it's there. Keep the file somewhere safe off this device, and don't email it.",function(){});
+   render();
+  }catch(e){toast("The backup didn't work. Nothing was changed. Try again.");}
+ });
 }
 function lastBackup(){try{return localStorage.getItem("moldJobAppLastBackup")||"";}catch(e){return "";}}
 function daysSince(ds){if(!ds)return 9999;var p=ds.split("-");var d=new Date(+p[0],+p[1]-1,+p[2]);return Math.floor((Date.now()-d.getTime())/86400000);}
+var restoreMode="merge";
+async function readBackup(obj,pw){
+ if(obj.version===2){var key=await deriveKey(pw,b64d(obj.salt));var pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(obj.iv)},key,b64d(obj.data));var text=new TextDecoder().decode(pt);if(await sha256(text)!==obj.check)throw new Error("check");return JSON.parse(text);}
+ if(obj.docs)return obj.docs;throw new Error("format");
+}
 function restoreFile(file){
  var r=new FileReader();
  r.onload=function(){var obj;try{obj=JSON.parse(r.result);}catch(e){toast("That file isn't a Mold Job App backup.");return;}
-  if(!obj||obj.app!=="Mold Job App"||!obj.docs){toast("That file isn't a Mold Job App backup.");return;}
-  var n=Object.keys(obj.docs).filter(function(k){return k.indexOf("jobs/")===0;}).length;
-  askConfirm("Replace everything on this device?","This backup from "+nice((obj.saved||"").slice(0,10))+" has "+n+" job"+(n===1?"":"s")+". Everything on this device now will be replaced by it.",function(){LocalStore.replaceAll(obj.docs).then(function(){toast("Backup restored.");setTimeout(function(){location.reload();},800);});});
+  if(!obj||obj.app!=="Mold Job App"){toast("That file isn't a Mold Job App backup.");return;}
+  var go=async function(pw){
+   var docs;try{docs=await readBackup(obj,pw);}catch(e){toast(obj.version===2?"Wrong password, or the file is damaged. Nothing was changed.":"That backup file is damaged. Nothing was changed.");return;}
+   var keys=Object.keys(docs), n=keys.filter(function(k){return k.indexOf("jobs/")===0;}).length;
+   if(restoreMode==="replace"){
+    askConfirm("Replace everything on this device?","The backup from "+nice((obj.saved||"").slice(0,10))+" has "+n+" job"+(n===1?"":"s")+". Every job on this device now will be replaced by it.",function(){
+     LocalStore.txWrite(keys.map(function(k){return {k:k,v:docs[k]};}),true).then(function(){toast("Backup restored.");setTimeout(function(){location.reload();},800);},function(){toast("Restore failed. Nothing was changed.");});});
+   } else {
+    var ops=[],added=0,updated=0;
+    keys.forEach(function(k){var mine=LocalStore.get(k),theirs=docs[k];
+     if(k==="settings/company"){if(!mine)ops.push({k:k,v:theirs});return;}
+     if(!mine){ops.push({k:k,v:theirs});if(k.indexOf("jobs/")===0)added++;}
+     else if((theirs.updatedAt||"")>(mine.updatedAt||"")){ops.push({k:k,v:theirs});if(k.indexOf("jobs/")===0)updated++;}});
+    askConfirm("Add jobs from this backup?",added+" new job"+(added===1?"":"s")+" will be added and "+updated+" will be updated to the newer copy. Jobs already on this device stay.",function(){
+     LocalStore.txWrite(ops,false).then(function(){toast("Jobs added.");setTimeout(function(){location.reload();},800);},function(){toast("That didn't work. Nothing was changed.");});});
+   }
+  };
+  if(obj.version===2){if(!canProtect()){toast("Open the app from its web address to restore a protected backup.");return;}askPassword("Open this backup","Type the password that was used when this backup was made.",false,go);}else go("");
  };
  r.readAsText(file);
 }
-document.addEventListener("change",function(e){var el=e.target;if(el.getAttribute&&el.getAttribute("data-act-file")==="restore"&&el.files&&el.files[0]){restoreFile(el.files[0]);el.value="";}});
+document.addEventListener("change",function(e){var el=e.target;var m=el.getAttribute&&el.getAttribute("data-act-file");if((m==="merge"||m==="replace")&&el.files&&el.files[0]){restoreMode=m;restoreFile(el.files[0]);el.value="";}});
 
 // ---------- boot ----------
 try{if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register("sw.js").catch(function(){});}catch(e){}
